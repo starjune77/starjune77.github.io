@@ -1,2 +1,3 @@
-Place the owner's real resume here as `Junyoung_Oh_Resume.pdf`.
-TODO: Add the real PDF. Do not replace it with a generated or fictional resume.
+﻿TODO: Place the owner's real resume here as `Junyoung_Oh_Resume.pdf`.
+Resume links check this path automatically on page load. Refresh after adding the PDF.
+Do not substitute a generated or fictional resume.
