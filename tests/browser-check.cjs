@@ -107,7 +107,7 @@ async function main(){
     const mobileMoving=await debugPosition();assert(mobileMoving.x>mobileBefore.x+30,'touch moves');assert(mobileMoving.y<540,'multi-touch jump');
     await send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});await wait(800);await press('F2','F2');await screenshot('world-mobile');
     await click('.quick-control');assert(await evaluate("document.querySelector('#quick-view').open"),'touch Quick View');
-    assert(await evaluate("[...document.querySelectorAll('[data-resume]')].every(a=>a.getAttribute('aria-disabled')==='true')"),'missing PDF has graceful TODO state');
+    await until("document.querySelector('.resume-status').textContent==='Resume PDF available.'");
     assert(await evaluate("document.querySelector('a[href=\"mailto:starjune07@gmail.com\"]')!==null"));
     assert(await evaluate("document.querySelector('a[href=\"https://github.com/starjune77\"]').rel.includes('noopener')"));
     await metrics(844,390,true);await wait(100);assert(await evaluate("document.querySelector('#quick-view').scrollWidth<=document.querySelector('#quick-view').clientWidth+1"),'landscape Quick View');
