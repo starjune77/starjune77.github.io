@@ -870,6 +870,63 @@ input[type=range] {
     font-size: 14px;
 }
 
+.portfolio #quick-contact {
+    padding-bottom: 89px;
+}
+
+.portfolio .skills-marquee {
+    padding: 32px 0 16px;
+    border-bottom: 0;
+    overflow: hidden;
+    mask-image: linear-gradient(to right, transparent, #000 5%, #000 95%, transparent);
+}
+
+.skills-track {
+    display: flex;
+    width: max-content;
+    animation: skills-travel 30s linear infinite;
+}
+
+.skills-train {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
+    min-width: 1220px;
+    gap: 56px;
+    margin: 0;
+    padding: 0 56px 0 0;
+    list-style: none;
+}
+
+.skill-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    white-space: nowrap;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--muted);
+}
+
+.skill-item img {
+    flex-shrink: 0;
+    object-fit: contain;
+}
+
+.skills-marquee:hover .skills-track {
+    animation-play-state: paused;
+}
+
+@keyframes skills-travel {
+    to { transform: translateX(-50%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .portfolio .skills-marquee { overflow-x: auto; mask-image: none; }
+    .skills-train[aria-hidden="true"] { display: none; }
+}
+
 .portfolio footer {
     padding: 32px 0;
     color: var(--muted);

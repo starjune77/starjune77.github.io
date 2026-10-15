@@ -21,6 +21,6 @@ export const experience = [
   { title: 'Student Council', dates: '2022–2024', role: 'Publicity and Club Affairs', organization: 'Jamsil High School / Pungsung Middle School', work: ['Coordinated event publicity and scheduling.','Centralized contacts for more than 30 clubs.','Developed and operated a student-run vending machine project.'], tags: ['Leadership','Operations','Communication','Project Management'] }
 ];
 export const honors = ['Programming Subject Excellence Award','National Honor Society'];
-export const contact = { email: 'starjune07@gmail.com', github: 'https://github.com/starjune77' };
+export const contact = { email: 'starjune07@gmail.com', github: 'https://github.com/starjune77', linkedin: 'https://www.linkedin.com/in/%EC%98%A4%EC%A4%80%EC%98%81-undefined-799218442/' };
 export const resumePath = 'assets/resume/Junyoung_Oh_Resume.pdf';
 // TODO: Add verified project repository URLs when supplied. No project links are inferred.

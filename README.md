@@ -1,4 +1,4 @@
-﻿# Junyoung Oh — Interactive Portfolio
+# Junyoung Oh — Interactive Portfolio
 
 A 2D side-scrolling platformer portfolio. Visitors explore an original digital lab, or open a complete professional portfolio in **Quick View**.
 
@@ -40,7 +40,7 @@ The integration check uses installed Chrome, without npm packages. Set `CHROME_P
 
 ## Remaining assets
 
-- **TODO:** Place the real PDF at `assets/resume/Junyoung_Oh_Resume.pdf`. Availability is checked automatically on load; refresh after adding it. Missing PDFs leave the buttons inactive. A missing optional file returns an expected HTTP 404, which is handled without a JavaScript exception.
+- The supplied resume is available at `assets/resume/Junyoung_Oh_Resume.pdf`. Availability is checked automatically on load; refresh after replacing it. Missing PDFs leave the buttons inactive. A missing optional file returns an expected HTTP 404, which is handled without a JavaScript exception.
 - **TODO:** Add verified project repository URLs to `js/data.js` when supplied. None are inferred.
 - The humanoid is original Canvas geometry. `Player.draw()` can later be replaced by a sprite renderer without changing physics.
 

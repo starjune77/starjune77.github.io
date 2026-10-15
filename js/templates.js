@@ -1,11 +1,16 @@
 import {profile,education,experience,skills,honors,contact,projects,resumePath} from './data.js';
 import {escapeHTML as esc} from './utils.js';
 export const chips=items=>`<div class="chips">${items.map(item=>`<span>${esc(item)}</span>`).join('')}</div>`;
-export const contactLinks=()=>`<a class="button primary" href="mailto:${contact.email}">Email me ↗</a><a class="button" href="${contact.github}" target="_blank" rel="noopener">GitHub ↗</a>`;
+export const contactLinks=()=>`<a class="button primary" href="mailto:${contact.email}">Email me ↗</a><a class="button" href="${contact.github}" target="_blank" rel="noopener">GitHub ↗</a><a class="button" href="${contact.linkedin}" target="_blank" rel="noopener">LinkedIn ↗</a>`;
 export function aboutHTML(){return `<p>${esc(profile.bio)}</p><p class="muted">${esc(profile.location)}</p><h3>Professional interests</h3>${chips(profile.interests)}`;}
 export function educationHTML(){return `<h3>${esc(education.university)}</h3><p>${esc(education.dates)}</p><p>${esc(education.degree)}<br>${esc(education.major)}</p><p>${esc(education.coursework)}<br>${esc(education.campus)}</p>`;}
 export function experienceHTML(){return experience.map(item=>`<article class="experience-record"><p class="eyebrow">${esc(item.dates)}</p><h3>${esc(item.title)}</h3><p>${esc(item.role)}<br><span class="muted">${esc(item.organization)}</span></p><ul>${item.work.map(line=>`<li>${esc(line)}</li>`).join('')}</ul>${chips(item.tags)}</article>`).join('');}
 export function skillsHTML(){return Object.entries(skills).map(([category,items])=>`<div><h3>${esc(category)}</h3>${chips(items)}</div>`).join('');}
+// Two identical groups keep the language train seamless at the loop boundary.
+export function skillsMarqueeHTML(){
+  const items=skills.Languages.map(name=>`<li class="skill-item"><img src="assets/skills/${name.toLowerCase()}.svg" width="30" height="30" alt=""><span>${esc(name)}</span></li>`).join('');
+  return `<section id="quick-skills" class="skills-marquee" aria-label="Programming languages"><div class="skills-track"><ul class="skills-train">${items}</ul><ul class="skills-train" aria-hidden="true">${items}</ul></div></section>`;
+}
 export function honorsHTML(){return `<ul class="honors-list">${honors.map(honor=>`<li>${esc(honor)}</li>`).join('')}</ul>`;}
 export function resumeHTML(){return `<p>Education, projects, experience, skills, and honors in one document.</p><div class="actions"><a class="button" data-resume href="${resumePath}" target="_blank" rel="noopener" aria-disabled="true" tabindex="-1">View resume ↗</a><a class="button" data-resume href="${resumePath}" download aria-disabled="true" tabindex="-1">Download PDF ↓</a></div><p class="resume-status muted" role="status">Resume PDF pending. The full portfolio is available in Quick View.</p>`;}
 export function projectCards(){return projects.map((p,i)=>`<article class="project-card ${i===0?'featured':''}"><p class="eyebrow">0${i+1} / ${esc(p.type)}</p><h3>${esc(p.title)}</h3><p class="context">${esc(p.context)}${p.role?`<br>${esc(p.role)}`:''}</p><p>${esc(p.description)}</p>${chips(p.technologies)}<button class="text-button" data-open="project" data-id="${p.id}">Read project details ↗</button></article>`).join('');}

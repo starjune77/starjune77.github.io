@@ -1,3 +1,2 @@
-﻿TODO: Place the owner's real resume here as `Junyoung_Oh_Resume.pdf`.
-Resume links check this path automatically on page load. Refresh after adding the PDF.
-Do not substitute a generated or fictional resume.
+Junyoung_Oh_Resume.pdf is the owner's supplied resume, copied from Junyoung_Oh_Resume_Updated.pdf.
+Resume links check this path automatically on page load. Replace this PDF to update the resume.
