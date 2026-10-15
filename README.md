@@ -13,7 +13,7 @@ Live: https://starjune77.github.io · Recruiter link: https://starjune77.github.
 
 ## Technology and architecture
 
-HTML, CSS, vanilla JavaScript, Canvas 2D, and ES modules. No build process, third-party runtime libraries, backend, audio, camera access, or API keys.
+HTML, CSS, vanilla JavaScript, Canvas 2D, and ES module source. No third-party runtime libraries, backend, audio, camera access, or API keys. After changing JavaScript, run `node tools/build.cjs` and commit the generated `assets/app-*.js` plus `index.html`. The page loads one content-hashed bundle so cached modules cannot mix releases.
 
 `script.js` initializes the app. `js/data.js` holds factual content. Game responsibilities are split across `game`, `player`, `physics`, `world`, `render-world`, `camera`, `input`, and `interactions`. DOM views use `panels`, `quick-view`, and shared `templates`; `mobile-controls`, `resume`, `terminal`, and `debug` add the supporting interfaces.
 
