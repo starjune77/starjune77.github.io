@@ -1,27 +1,178 @@
 ﻿<!doctype html>
 <html lang="en">
+
 <head>
-  <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <title>Junyoung Oh | Computer Science &amp; Interactive Systems</title>
-  <meta name="description" content="Portfolio of Junyoung Oh, a Computer Science student at the University of Wisconsin–Madison working across software development, interactive systems, computer vision, and AI.">
-  <meta name="theme-color" content="#03060b"><meta property="og:title" content="Junyoung Oh | Computer Science & Interactive Systems"><meta property="og:description" content="Explore Junyoung Oh’s playable portfolio, or read the complete professional portfolio in Quick View."><meta property="og:type" content="website">
-  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml"><link rel="stylesheet" href="style.css"><script type="module" src="script.js"></script>
+  <meta name="description"
+    content="Portfolio of Junyoung Oh, a Computer Science student at the University of Wisconsin–Madison working across software development, interactive systems, computer vision, and AI.">
+  <meta name="theme-color" content="#03060b">
+  <meta property="og:title" content="Junyoung Oh | Computer Science & Interactive Systems">
+  <meta property="og:description"
+    content="Explore Junyoung Oh’s playable portfolio, or read the complete professional portfolio in Quick View.">
+  <meta property="og:type" content="website">
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="style.css">
+  <script type="module" src="script.js"></script>
 </head>
+
 <body>
-<button class="skip" data-quick>Open accessible portfolio</button>
-<main id="game-shell" aria-label="Interactive portfolio world">
-  <canvas id="world" tabindex="0" aria-label="Junyoung Oh’s side-scrolling portfolio. A or D to move, Space to jump, E to interact, Q to read the complete portfolio.">Use Quick View to read the complete portfolio without Canvas.</canvas>
-  <header class="game-hud"><div class="hud-brand"><span>JY<span class="blue">/</span>LAB<span class="status-dot"></span></span><p id="current-area">SYSTEM START</p></div><nav id="zone-progress" aria-label="World area progress"></nav><button class="button quick-control" data-quick>Quick View <kbd>Q</kbd></button></header>
-  <div id="tutorial"><p class="eyebrow">JUNYOUNG OH / INTERACTIVE PORTFOLIO</p><p class="tutorial-desktop"><kbd>A</kbd><kbd>D</kbd> Move <span>·</span> <kbd>Space</kbd> Jump <span>·</span> <kbd>E</kbd> Open</p><p class="tutorial-touch">Move, jump, and open with the controls below.</p><p class="muted">Jump into a labeled block, press E nearby, or click it. Read everything in Quick View.</p></div>
-  <p id="zone-banner" aria-live="polite"></p>
-  <button id="interaction-prompt" hidden><span id="interaction-name"></span><small id="interaction-detail"></small><span class="prompt-desktop"><kbd>E</kbd> OPEN <span> / </span> JUMP TO ACCESS</span><span class="prompt-touch">TAP TO OPEN</span></button>
-  <div id="mobile-controls" aria-label="Touch game controls"><div><button data-touch="left" aria-label="Move left">←</button><button data-touch="right" aria-label="Move right">→</button></div><div><button data-touch="jump" aria-label="Jump">Jump</button><button id="touch-open" disabled>Open</button></div></div>
-  <div class="world-footer"><span>ORIGINAL CANVAS WORLD / NO CAMERA ACCESS</span><span>JUNYOUNG LAB · MADISON, WI</span></div>
-  <pre id="debug-panel" hidden aria-label="Live game diagnostics"></pre>
-</main>
-<dialog id="quick-view" class="quick-view" aria-labelledby="quick-title"><header class="quick-header"><a class="brand" href="#quick-main">Junyoung Oh<span>.</span></a><nav aria-label="Portfolio navigation"><a href="#quick-projects">Work</a><a href="#quick-experience">Experience</a><a href="#quick-skills">Skills</a><a href="#quick-resume">Resume</a><a href="#quick-contact">Contact</a></nav><button class="button return-button" data-close>Return to game <span>×</span></button></header><div id="quick-content"><!-- Semantic content is generated from js/data.js by js/quick-view.js. --></div></dialog>
-<dialog id="info-panel" class="info-panel" aria-labelledby="panel-title"><div class="dialog-toolbar"><p id="panel-label" class="eyebrow">INFORMATION MODULE</p><div class="panel-tools"><button class="text-button" data-quick>Quick View</button><button class="button" data-close aria-label="Close information panel">Close ×</button></div></div><div class="panel-body"><h2 id="panel-title" tabindex="-1"></h2><div id="panel-content"></div></div></dialog>
-<dialog id="terminal-dialog" class="terminal-dialog" aria-labelledby="terminal-title"><div class="dialog-toolbar"><h2 id="terminal-title" class="eyebrow">JUNYOUNG@PORTFOLIO:~</h2><button class="button" data-close aria-label="Close terminal">Close ×</button></div><div id="terminal-output" role="log" aria-live="polite"><p>Portfolio console. Type help for commands.</p></div><form id="terminal-form"><label for="terminal-input">jy:~$</label><input id="terminal-input" autocomplete="off" spellcheck="false" aria-label="Terminal command"></form></dialog>
-<dialog id="mobile-choice" class="mobile-choice" aria-labelledby="choice-title"><p class="eyebrow">JUNYOUNG LAB</p><h2 id="choice-title">Choose your<br>way in.</h2><p>Explore a playable digital world, or read the full professional portfolio.</p><div class="actions"><button id="explore-choice" class="button primary">Explore world →</button><button id="quick-choice" class="button">Quick View ↗</button></div></dialog>
-<noscript><style>#game-shell,.skip,#quick-view{display:none}body{overflow:auto}</style><main class="portfolio fallback"><h1>Junyoung Oh</h1><p>Computer Science Student · University of Wisconsin–Madison</p><p>Computer Science · Interactive Systems · AI</p><p>I build software people can experience.</p><section><h2>About</h2><p>A freshman and Bachelor of Science student intending to major in Computer Science, interested in software engineering, interactive systems, game technology, applied AI, computer vision, and human-centered software.</p><p>Madison, Wisconsin · CS 300 — Programming II (Java) · LIKELION Wisconsin — Member</p></section><section><h2>Projects</h2><article><h3>MorrowLab</h3><p>Core Developer · Badger BuildFest · UW–Madison · September 26–27, 2026</p><p>A React/TypeScript study application combining activity tracking and self-evaluation to support next-day study schedules. Integrated MediaPipe-based object detection and face tracking with on-device camera processing to identify phone use and time away.</p></article><article><h3>Student Morning Information Dashboard</h3><p>SOURCE Programming Club · Jamsil High School</p><p>Weather and stock API integrations, HTML/CSS and JavaScript contributions, reusable modules, GitHub collaboration, and peer code reviews.</p></article><article><h3>Cybersecurity Learning Game</h3><p>Seoul Women’s University · Information Security Gifted Program</p><p>A Python learning game introducing cybersecurity concepts through interactive questions.</p></article><article><h3>Object Detection Prototype</h3><p>The Academies by Harvard Student Agencies</p><p>YOLO object detection in Python and exploration of machine learning models with NumPy and PyTorch.</p></article></section><section><h2>Experience</h2><h3>FIRST Robotics — TechnoKats</h3><p>Mechanical and Software Member · Kokomo High School · 2024–2026. Contributed CAD drivetrain designs and Java robot control code.</p><h3>Student Council</h3><p>Publicity and Club Affairs · Jamsil High School / Pungsung Middle School · 2022–2024. Coordinated event publicity and scheduling, centralized contacts for more than 30 clubs, and developed and operated a student-run vending machine project.</p></section><section><h2>Skills</h2><p>JavaScript, TypeScript, Python, Java, HTML, CSS</p><p>React, MediaPipe, YOLO, NumPy, PyTorch, API Integration, Git, GitHub</p></section><section><h2>Education</h2><p>University of Wisconsin–Madison · Fall 2026 — Present<br>Bachelor of Science student · Intended major: Computer Science</p></section><section><h2>Honors</h2><p>Programming Subject Excellence Award · National Honor Society</p></section><section><h2>Resume</h2><p>Resume PDF pending. Enable JavaScript for interactive portfolio features and resume availability checks.</p></section><section><h2>Contact</h2><div class="actions"><a class="button" href="mailto:starjune07@gmail.com">Email me</a><a class="button" href="https://github.com/starjune77" target="_blank" rel="noopener">GitHub</a></div></section></main></noscript>
-</body></html>
+  <button class="skip" data-quick>Open accessible portfolio</button>
+  <main id="game-shell" aria-label="Interactive portfolio world">
+    <canvas id="world" tabindex="0"
+      aria-label="Junyoung Oh’s side-scrolling portfolio. A or D to move, Space to jump, E to interact, Q to read the complete portfolio.">Use
+      Quick View to read the complete portfolio without Canvas.</canvas>
+    <header class="game-hud">
+      <div class="hud-brand"><span>JY<span class="blue">/</span>LAB<span class="status-dot"></span></span>
+        <p id="current-area">SYSTEM START</p>
+      </div>
+      <nav id="zone-progress" aria-label="World area progress"></nav><button class="button quick-control"
+        data-quick>Quick View <kbd>Q</kbd></button>
+    </header>
+    <div id="tutorial">
+      <p class="eyebrow">JUNYOUNG OH / INTERACTIVE PORTFOLIO</p>
+      <p class="tutorial-desktop"><kbd>A</kbd><kbd>D</kbd> Move <span>·</span> <kbd>Space</kbd> Jump <span>·</span>
+        <kbd>E</kbd> Open</p>
+      <p class="tutorial-touch">Move, jump, and open with the controls below.</p>
+      <p class="muted">Jump into a labeled block, press E nearby, or click it. Read everything in Quick View.</p>
+    </div>
+    <p id="zone-banner" aria-live="polite"></p>
+    <button id="interaction-prompt" hidden><span id="interaction-name"></span><small
+        id="interaction-detail"></small><span class="prompt-desktop"><kbd>E</kbd> OPEN <span> / </span> JUMP TO
+        ACCESS</span><span class="prompt-touch">TAP TO OPEN</span></button>
+    <div id="mobile-controls" aria-label="Touch game controls">
+      <div><button data-touch="left" aria-label="Move left">←</button><button data-touch="right"
+          aria-label="Move right">→</button></div>
+      <div><button data-touch="jump" aria-label="Jump">Jump</button><button id="touch-open" disabled>Open</button></div>
+    </div>
+    <div class="world-footer"><span>ORIGINAL CANVAS WORLD / NO CAMERA ACCESS</span><span>JUNYOUNG LAB · MADISON,
+        WI</span></div>
+    <pre id="debug-panel" hidden aria-label="Live game diagnostics"></pre>
+  </main>
+  <dialog id="quick-view" class="quick-view" aria-labelledby="quick-title">
+    <header class="quick-header"><a class="brand" href="#quick-main">Junyoung Oh<span>.</span></a>
+      <nav aria-label="Portfolio navigation"><a href="#quick-projects">Work</a><a
+          href="#quick-experience">Experience</a><a href="#quick-skills">Skills</a><a href="#quick-resume">Resume</a><a
+          href="#quick-contact">Contact</a></nav><button class="button return-button" data-close>Return to game
+        <span>×</span></button>
+    </header>
+    <div id="quick-content"><!-- Semantic content is generated from js/data.js by js/quick-view.js. --></div>
+  </dialog>
+  <dialog id="info-panel" class="info-panel" aria-labelledby="panel-title">
+    <div class="dialog-toolbar">
+      <p id="panel-label" class="eyebrow">INFORMATION MODULE</p>
+      <div class="panel-tools"><button class="text-button" data-quick>Quick View</button><button class="button"
+          data-close aria-label="Close information panel">Close ×</button></div>
+    </div>
+    <div class="panel-body">
+      <h2 id="panel-title" tabindex="-1"></h2>
+      <div id="panel-content"></div>
+    </div>
+  </dialog>
+  <dialog id="terminal-dialog" class="terminal-dialog" aria-labelledby="terminal-title">
+    <div class="dialog-toolbar">
+      <h2 id="terminal-title" class="eyebrow">JUNYOUNG@PORTFOLIO:~</h2><button class="button" data-close
+        aria-label="Close terminal">Close ×</button>
+    </div>
+    <div id="terminal-output" role="log" aria-live="polite">
+      <p>Portfolio console. Type help for commands.</p>
+    </div>
+    <form id="terminal-form"><label for="terminal-input">jy:~$</label><input id="terminal-input" autocomplete="off"
+        spellcheck="false" aria-label="Terminal command"></form>
+  </dialog>
+  <dialog id="mobile-choice" class="mobile-choice" aria-labelledby="choice-title">
+    <p class="eyebrow">JUNYOUNG LAB</p>
+    <h2 id="choice-title">Choose your<br>way in.</h2>
+    <p>Explore a playable digital world, or read the full professional portfolio.</p>
+    <div class="actions"><button id="explore-choice" class="button primary">Explore world →</button><button
+        id="quick-choice" class="button">Quick View ↗</button></div>
+  </dialog>
+  <noscript>
+    <style>
+      #game-shell,
+      .skip,
+      #quick-view {
+        display: none
+      }
+
+      body {
+        overflow: auto
+      }
+    </style>
+    <main class="portfolio fallback">
+      <h1>Junyoung Oh</h1>
+      <p>Computer Science Student · University of Wisconsin–Madison</p>
+      <p>Computer Science · Interactive Systems · AI</p>
+      <p>I build software people can experience.</p>
+      <section>
+        <h2>About</h2>
+        <p>A freshman and Bachelor of Science student intending to major in Computer Science, interested in software
+          engineering, interactive systems, game technology, applied AI, computer vision, and human-centered software.
+        </p>
+        <p>Madison, Wisconsin · CS 300 — Programming II (Java) · LIKELION Wisconsin — Member</p>
+      </section>
+      <section>
+        <h2>Projects</h2>
+        <article>
+          <h3>MorrowLab</h3>
+          <p>Core Developer · Badger BuildFest · UW–Madison · September 26–27, 2026</p>
+          <p>A React/TypeScript study application combining activity tracking and self-evaluation to support next-day
+            study schedules. Integrated MediaPipe-based object detection and face tracking with on-device camera
+            processing to identify phone use and time away.</p>
+        </article>
+        <article>
+          <h3>Student Morning Information Dashboard</h3>
+          <p>SOURCE Programming Club · Jamsil High School</p>
+          <p>Weather and stock API integrations, HTML/CSS and JavaScript contributions, reusable modules, GitHub
+            collaboration, and peer code reviews.</p>
+        </article>
+        <article>
+          <h3>Cybersecurity Learning Game</h3>
+          <p>Seoul Women’s University · Information Security Gifted Program</p>
+          <p>A Python learning game introducing cybersecurity concepts through interactive questions.</p>
+        </article>
+        <article>
+          <h3>Object Detection Prototype</h3>
+          <p>The Academies by Harvard Student Agencies</p>
+          <p>YOLO object detection in Python and exploration of machine learning models with NumPy and PyTorch.</p>
+        </article>
+      </section>
+      <section>
+        <h2>Experience</h2>
+        <h3>FIRST Robotics — TechnoKats</h3>
+        <p>Mechanical and Software Member · Kokomo High School · 2024–2026. Contributed CAD drivetrain designs and Java
+          robot control code.</p>
+        <h3>Student Council</h3>
+        <p>Publicity and Club Affairs · Jamsil High School / Pungsung Middle School · 2022–2024. Coordinated event
+          publicity and scheduling, centralized contacts for more than 30 clubs, and developed and operated a
+          student-run vending machine project.</p>
+      </section>
+      <section>
+        <h2>Skills</h2>
+        <p>JavaScript, TypeScript, Python, Java, HTML, CSS</p>
+        <p>React, MediaPipe, YOLO, NumPy, PyTorch, API Integration, Git, GitHub</p>
+      </section>
+      <section>
+        <h2>Education</h2>
+        <p>University of Wisconsin–Madison · Fall 2026 — Present<br>Bachelor of Science student · Intended major:
+          Computer Science</p>
+      </section>
+      <section>
+        <h2>Honors</h2>
+        <p>Programming Subject Excellence Award · National Honor Society</p>
+      </section>
+      <section>
+        <h2>Resume</h2>
+        <p>Resume PDF pending. Enable JavaScript for interactive portfolio features and resume availability checks.</p>
+      </section>
+      <section>
+        <h2>Contact</h2>
+        <div class="actions"><a class="button" href="mailto:starjune07@gmail.com">Email me</a><a class="button"
+            href="https://github.com/starjune77" target="_blank" rel="noopener">GitHub</a></div>
+      </section>
+    </main>
+  </noscript>
+</body>
+
+</html>
