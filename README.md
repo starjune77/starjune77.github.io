@@ -1,23 +1,60 @@
 # Junyoung Oh — Interactive Portfolio
 
-A 2D side-scrolling platformer portfolio. Visitors explore an original digital lab, or open a complete professional portfolio in **Quick View**.
+A 2D side-scrolling platformer portfolio set in the **Rain District**, an original neon city at night. Visitors run through eight districts, or open the complete professional portfolio in **Quick View**.
 
 Live: https://starjune77.github.io · Recruiter link: https://starjune77.github.io/?view=quick
 
 ## Controls and modes
 
-- **World:** A/D or left/right arrows to move; Space (also W/up) to jump; E to open the closest block. Blocks also open when hit from below or clicked.
+- **World:** A/D or left/right arrows to move; Space (also W/up) to jump; hold **Shift to sprint** (keyboard, about 1.35× speed); E to open the closest kiosk. Kiosks also open when hit from below or clicked.
 - **Quick View:** Q or the persistent button. Escape / Return to game restores the same world position. Panels pause physics and camera movement.
 - **Touch:** Explore World / Quick View choice, then left, right, jump, and open buttons with multi-touch support.
-- **Optional tools:** F2 for real diagnostics; backtick or the world terminal for the portfolio console.
+- **Optional tools:** backtick or the world terminal for the portfolio console; F2 for live diagnostics (FPS, render time, particle count). While F2 is open, keys 1–8 jump to each district.
+
+## Movement
+
+Run speed is 500 units/s (sprint 675), with acceleration 4,200, deceleration 5,300, jump velocity −820 and gravity 2,300. The jump keeps the old apex with less air time. Tuning lives in `MOVE` in `js/player.js`. The world is 11,200 × 1,000 units, with continuous safe ground and optional platforms. A simulated uninterrupted run takes about 22 seconds (about 16 seconds sprinting). Tests check that every kiosk can be hit from below and every platform can be reached.
+
+The camera follows with a critically damped spring and an eased look-ahead. Rendering is interpolated between fixed 120 Hz physics steps, so motion stays smooth on any refresh rate.
+
+## The world
+
+Districts, each with its own landmark and accent colour: Start (rooftop gate) → About (ID-scanner arch) → Projects (night market) → AI (lens tower) → Experience (robotics workshop) → Skills (tram station) → Resume (archive vault) → Contact (comms mast).
+
+- Three parallax skyline layers sit over a sky gradient with haze. A street level below the ground line has a wet deck, reflections, a girder underside, lamps, cables and a lower city.
+- Animated details: rain, puddle ripples, flickering neon, holographic billboards, flying vehicles and steam.
+- Interactive blocks are holographic kiosks; skill platforms are hovering tram decks. Hitboxes come only from `js/world.js`.
+- **Performance:**
+  - Static skyline pixels are pre-rendered to offscreen tiles and rebuilt on resize.
+  - Off-screen objects are culled, and devicePixelRatio is capped at 2.
+  - Particle counts are capped, and lower on touch and small screens.
+- **Reduced motion** turns off rain, traffic, steam, flicker, parallax and scanline motion, and the camera follows directly. Animation also stops while the page is hidden or an overlay is open.
+- **Layout:** world text never draws above the measured HUD band or below the ground line. The browser check enforces this at every tested viewport.
 
 ## Technology and architecture
 
-HTML, CSS, vanilla JavaScript, Canvas 2D, and ES module source. No third-party runtime libraries, backend, audio, camera access, or API keys. After changing JavaScript, run `node tools/build.cjs` and commit the generated `assets/app-*.js` plus `index.html`. The page loads one content-hashed bundle so cached modules cannot mix releases.
+HTML, CSS, vanilla JavaScript, Canvas 2D and ES module source. No third-party runtime libraries, CDNs, backend, audio, camera access or API keys. Fonts are system font stacks.
 
-`script.js` initializes the app. `js/data.js` holds factual content. Game responsibilities are split across `game`, `player`, `physics`, `world`, `render-world`, `camera`, `input`, and `interactions`. DOM views use `panels`, `quick-view`, and shared `templates`; `mobile-controls`, `resume`, `terminal`, and `debug` add the supporting interfaces.
+`script.js` initializes the app, and `js/data.js` is the single source of factual content.
+- **Gameplay:** `game`, `player` (physics only), `physics`, `world`, `camera`, `input` and `interactions`.
+- **Rendering:** `render-world` composes the frame from `render-sky` (sky, skyline, lower city), `render-district` (landmarks, signs, street), `render-blocks` (kiosks, platforms), `render-player` (the runner) and `render-fx` (rain, traffic, steam). It uses `render-kit` and `palette`.
+- **DOM views:** `panels`, `quick-view` and shared `templates`. `mobile-controls`, `resume`, `terminal` and `debug` add the supporting interfaces.
 
-The world is 11,200 × 1,000 units, with continuous safe ground and optional platforms. Zones: Start → About → Projects → AI → Experience → Skills → Resume → Contact. A simulated uninterrupted traversal takes about 34 seconds. Reduced motion removes parallax and decorative animation and makes the camera follow directly. Animation stops when the page is hidden or an overlay is open. A semantic no-JavaScript fallback is included.
+A semantic no-JavaScript fallback is included, and Quick View opens automatically if Canvas is unavailable.
+
+## Build and line endings
+
+After changing JavaScript or `style.css`, run:
+
+```sh
+node tools/build.cjs
+```
+
+Then commit the generated `assets/app-*.js` together with `index.html`.
+- The page loads one content-hashed bundle, so cached modules can't mix releases. `style.css` gets a content-hash query generated by the build.
+- The build strips BOMs and normalizes CRLF to LF before hashing. The bundle name is therefore the same on Windows, macOS and Linux, and matches Git's copy.
+- It deletes stale bundles and fails on import forms it can't bundle, including query strings in import specifiers.
+- `.gitattributes` stores text as LF (`* text=auto eol=lf`, with binary rules for PDFs and images), and `.editorconfig` sets UTF-8, LF and a final newline. Existing clones can run `git add --renormalize .` once.
 
 ## Preview locally
 
@@ -36,12 +73,21 @@ node --test tests/game.test.mjs
 node tests/browser-check.cjs
 ```
 
-The integration check uses installed Chrome, without npm packages. Set `CHROME_PATH` if needed. It checks gameplay, overlays, touch controls, links, demos, and the requested screen sizes. Screenshots and the isolated browser profile go in the OS temporary folder.
+**Unit tests** cover movement, sprint, jumps, reachability, camera follow and the Quick View structure. They also cover source hygiene (no BOM, CRLF or `?v=` import specifiers) and a reproducible build hash.
 
-## Remaining assets
+The **integration check** drives installed Chrome or Chromium through the DevTools protocol, without npm packages. It finds the browser in the usual Windows, macOS and Linux locations; set `CHROME_PATH` to override. It adds `--no-sandbox` only when running as root on Linux. It checks:
+- gameplay, overlays, touch and multi-touch controls, links, demos and deep links
+- reduced motion and particle caps
+- WCAG AA contrast in Quick View and panels
+- no overlap between the HUD, tutorial, prompt, touch controls and world labels at ten viewports, at the start and in every district
 
-- The supplied resume is available at `assets/resume/Junyoung_Oh_Resume.pdf`. Availability is checked automatically on load; refresh after replacing it. Missing PDFs leave the buttons inactive. A missing optional file returns an expected HTTP 404, which is handled without a JavaScript exception.
-- **TODO:** Add verified project repository URLs to `js/data.js` when supplied. None are inferred.
-- The humanoid is original Canvas geometry. `Player.draw()` can later be replaced by a sprite renderer without changing physics.
+Screenshots and the isolated browser profile go in the OS temporary folder.
+
+## Art and assets
+
+- **Original work:** all world art, the character, kiosks, landmarks, the SVG accents in `assets/accents/` and the favicon are drawn in code (Canvas 2D paths) or written by hand as SVG for this portfolio. They do not copy or imitate existing games, films or brands. Sign and billboard text uses the owner's own names (JY/LAB, Junyoung Oh, Madison, project names) or invented words.
+- **Third party:** language icons in `assets/skills/` are from Devicon (MIT; see `assets/skills/LICENSE`).
+- **Resume:** the supplied resume is at `assets/resume/Junyoung_Oh_Resume.pdf`. Availability is checked automatically on load; refresh after replacing it. Missing PDFs leave the buttons inactive, and the expected HTTP 404 is handled without a JavaScript exception.
+- **TODO:** add verified project repository URLs to `js/data.js` when supplied. None are inferred.
 
 All demos are labeled portfolio simulations; sample study data is fictional. No AI benchmark metrics or unprovided achievements are claimed.
