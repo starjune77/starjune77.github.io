@@ -1,0 +1,20 @@
+# Store and check out text as LF on every OS, so content hashes match Git's copy.
+* text=auto eol=lf
+
+# Binary assets are never converted or diffed as text.
+*.pdf binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.avif binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.otf binary
+*.mp3 binary
+*.mp4 binary
+*.webm binary
+*.zip binary

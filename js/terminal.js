@@ -1,4 +1,4 @@
-﻿import {profile,projects,skills,education,experience,contact} from './data.js';
+import {profile,projects,skills,education,experience,contact} from './data.js';
 export function setupTerminal(overlays,openPanel){
   const dialog=document.querySelector('#terminal-dialog'),output=document.querySelector('#terminal-output'),input=document.querySelector('#terminal-input');
   const commands={

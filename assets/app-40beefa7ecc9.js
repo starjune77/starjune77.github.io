@@ -10,6 +10,7 @@ const {setupResume} = load("js/resume.js");
 const {setupTerminal} = load("js/terminal.js");
 const {setupDebug} = load("js/debug.js");
 const {setupMobileControls} = load("js/mobile-controls.js");
+
 const state=createState();
 const canvas=document.querySelector('#world');
 const overlays=setupOverlays(state,canvas);
@@ -65,6 +66,7 @@ const {Camera} = load("js/camera.js");
 const {createWorld,zoneAt,zones} = load("js/world.js");
 const {nearestInteraction,blockAt,Interactions} = load("js/interactions.js");
 const {renderWorld} = load("js/render-world.js");
+
 class Game {
   constructor(canvas,state,onOpen,debug) {
     this.canvas=canvas;this.ctx=canvas.getContext('2d');this.state=state;
@@ -446,6 +448,7 @@ return {Input};
 "js/panels.js":function(load){
 const {projects,profile,contact} = load("js/data.js");
 const {aboutHTML,educationHTML,experienceHTML,skillsHTML,honorsHTML,resumeHTML,contactLinks,projectCards,projectHTML,aiDemo,chips} = load("js/templates.js");
+
 function setupOverlays(state,canvas) {
   const dialogs=[...document.querySelectorAll('dialog')];
   const sync=()=>{

@@ -1,4 +1,4 @@
-import {profile,education,experience,skills,honors,contact,projects,resumePath} from './data.js?v=20261015-fix-init';
+import {profile,education,experience,skills,honors,contact,projects,resumePath} from './data.js';
 import {escapeHTML as esc} from './utils.js';
 export const chips=items=>`<div class="chips">${items.map(item=>`<span>${esc(item)}</span>`).join('')}</div>`;
 export const contactLinks=()=>`<a class="button primary" href="mailto:${contact.email}">Email me ↗</a><a class="button" href="${contact.github}" target="_blank" rel="noopener">GitHub ↗</a><a class="button" href="${contact.linkedin}" target="_blank" rel="noopener">LinkedIn ↗</a>`;
