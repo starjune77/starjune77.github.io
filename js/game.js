@@ -2,13 +2,14 @@ import {Player} from './player.js';
 import {Camera} from './camera.js';
 import {createWorld,zoneAt,zones} from './world.js';
 import {nearestInteraction,blockAt,Interactions} from './interactions.js';
-import {renderWorld} from './render-world.js';
+import {WorldRenderer} from './render-world.js';
 
 export class Game {
   constructor(canvas,state,onOpen,debug) {
     this.canvas=canvas;this.ctx=canvas.getContext('2d');this.state=state;
     this.world=createWorld();this.player=new Player();this.camera=new Camera();
     this.interactions=new Interactions(onOpen);this.debug=debug;
+    this.renderer=this.ctx?new WorldRenderer(this.world):null;this.coarse=matchMedia('(pointer:coarse)');
     this.view={width:1,height:1,dpr:1};this.frame=0;this.previous=0;this.accumulator=0;
     this.fps=0;this.frameCount=0;this.fpsStart=0;this.hovered=null;this.input=null;
     this.reduced=matchMedia('(prefers-reduced-motion:reduce)');
@@ -37,8 +38,10 @@ export class Game {
   resize(){
     this.view.width=innerWidth;this.view.height=innerHeight;this.view.dpr=Math.min(devicePixelRatio||1,2);
     this.canvas.width=Math.round(this.view.width*this.view.dpr);this.canvas.height=Math.round(this.view.height*this.view.dpr);
+    // Touch and small screens get fewer particles and lighter offscreen layers.
+    this.view.lowQuality=this.coarse.matches||Math.min(this.view.width,this.view.height)<600;
     this.camera.resize(this.view.width,this.view.height);this.camera.update(this.player,this.world.width,0,true);
-    this.measureHud();this.render();
+    this.renderer?.resize(this.view);this.measureHud();this.render();
   }
   measureHud(){
     let bottom=0;
@@ -89,11 +92,10 @@ export class Game {
   returnToStart(){this.player.respawn({x:180,y:540});this.camera.update(this.player,this.world.width,0,true);this.state.currentZone='start';this.world.checkpoint={x:180,y:540};document.querySelector('#current-area').textContent='SYSTEM START';document.querySelectorAll('[data-zone]').forEach(e=>{e.classList.remove('current');e.removeAttribute('aria-current');});this.render();}
   render(){
     if(!this.ctx)return;
+    // Every text box drawn this frame, in CSS pixels, for layout checks (F2 exposes them).
     const labels=[];
-    renderWorld(this.ctx,this.world,this.player,this.camera,this.view,this.state,this.reduced.matches,this.hovered,labels);
-    // Recorded in world units; stored in CSS pixels for layout checks (F2 exposes them).
-    const {x,y,scale}=this.camera;
-    this.labels=labels.map(l=>({text:l.text,x:(l.x-x)*scale,y:(l.y-y)*scale,w:l.w*scale,h:l.h*scale}));
+    this.renderer.render(this.ctx,this.world,this.player,this.camera,this.view,this.state,this.reduced.matches,this.hovered,labels);
+    this.labels=labels;
     this.debug?.update(this);
   }
   destroy(){cancelAnimationFrame(this.frame);this.hudObserver?.disconnect();removeEventListener('resize',this.resize);document.removeEventListener('visibilitychange',this.sync);this.unsubscribe();this.input?.destroy();}

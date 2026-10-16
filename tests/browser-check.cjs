@@ -92,9 +92,10 @@ async function main(){
       for(const [name,selector] of [['brand','.hud-brand'],['progress','#zone-progress'],['quick','.quick-control'],['tutorial','#tutorial'],['banner','#zone-banner'],['prompt','#interaction-prompt'],['touch-left','#mobile-controls>div:first-child'],['touch-right','#mobile-controls>div:last-child'],['footer-left','.world-footer>span:first-child'],['footer-right','.world-footer>span:last-child']]){
         const el=document.querySelector(selector);if(!shown(el))continue;const r=el.getBoundingClientRect();boxes.push({name,x:r.x,y:r.y,w:r.width,h:r.height,dom:true});
       }
-      const labels=JSON.parse(document.querySelector('#debug-panel').dataset.labels||'[]').filter(l=>l.x<innerWidth&&l.x+l.w>0&&l.y<innerHeight&&l.y+l.h>0).map(l=>({...l,name:'"'+l.text+'"'}));
+      const labels=JSON.parse(document.querySelector('#debug-panel').dataset.labels||'[]').filter(l=>l.x<innerWidth&&l.x+l.w>0&&l.y<innerHeight&&l.y+l.h>0).map(l=>({...l,name:l.kind==='actor'?'player':'"'+l.text+'"'}));
       const all=[...boxes,...labels],hits=[];
-      for(let i=0;i<all.length;i++)for(let j=i+1;j<all.length;j++){const a=all[i],b=all[j];if(a.x<b.x+b.w-1&&a.x+a.w>b.x+1&&a.y<b.y+b.h-1&&a.y+a.h>b.y+1)hits.push(a.name+' overlaps '+b.name);}
+      // HUD vs anything; world text vs world text. Background signage and the player only count against the HUD.
+      for(let i=0;i<all.length;i++)for(let j=i+1;j<all.length;j++){const a=all[i],b=all[j];if(!a.dom&&!b.dom&&(a.kind!=='text'||b.kind!=='text'))continue;if(a.x<b.x+b.w-1&&a.x+a.w>b.x+1&&a.y<b.y+b.h-1&&a.y+a.h>b.y+1)hits.push(a.name+' overlaps '+b.name);}
       return hits;})()`);
     const layoutFailures=[];
     const checkLayout=async(width,height,touch)=>{
@@ -113,6 +114,8 @@ async function main(){
     await send('Page.enable');await send('Page.setLifecycleEventsEnabled',{enabled:true});await send('Runtime.enable');
     await metrics(1440,900);await navigate('/');await screenshot('world-desktop');
     await press('F2','F2');const initial=await debugPosition();
+    const particles=async()=>Number((await evaluate("document.querySelector('#debug-panel').textContent")).match(/PARTICLES (\d+)/)[1]);
+    await wait(300);const desktopParticles=await particles();assert(desktopParticles>0&&desktopParticles<=330,'desktop particles capped: '+desktopParticles);
     await key('KeyD','d');await wait(400);await key('KeyD','d',false);await wait(250);
     const moved=await debugPosition();assert(moved.x>initial.x+70,'D moves right');
     await key('Space',' ');await wait(200);const jumped=await debugPosition();assert(jumped.y<540,'Space jumps');
@@ -162,9 +165,11 @@ async function main(){
     await click('#detection-toggle');assert(await evaluate("document.querySelector('.detection-scene').classList.contains('off')"));
     await send('Emulation.setEmulatedMedia',{features:[{name:'prefers-reduced-motion',value:'reduce'}]});await navigate('/');
     assert(await evaluate("matchMedia('(prefers-reduced-motion:reduce)').matches"));
+    await press('F2','F2');await wait(400);assert.equal(await particles(),0,'reduced motion disables rain, steam and traffic');await press('F2','F2');
     await send('Emulation.setEmulatedMedia',{features:[]});await metrics(390,844,true);await send('Emulation.setTouchEmulationEnabled',{enabled:true,maxTouchPoints:5});await navigate('/');
     assert(await evaluate("document.querySelector('#mobile-choice').open"),'mobile choice');await click('#explore-choice');await wait(100);await press('F2','F2');
     const mobileBefore=await debugPosition();
+    const touchParticles=await particles();assert(touchParticles<=120,'touch particles capped: '+touchParticles);
     const point=selector=>evaluate(`(()=>{const r=document.querySelector(${JSON.stringify(selector)}).getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2}})()`);
     const right=await point('[data-touch="right"]'),jump=await point('[data-touch="jump"]');
     await send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{...right,id:1}]});await wait(200);

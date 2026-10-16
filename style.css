@@ -1333,8 +1333,12 @@ input[type=range] {
         padding: 10px 18px;
     }
 
-    #interaction-prompt {
-        bottom: 90px;
+    /* Landscape phones: the prompt sits in the street band between the touch clusters,
+       never over the runner. */
+    .touch-device #interaction-prompt {
+        bottom: max(10px, env(safe-area-inset-bottom));
+        min-width: 0;
+        max-width: calc(100% - 330px);
     }
 
     .touch-device #mobile-controls {
