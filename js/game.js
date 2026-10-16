@@ -4,13 +4,16 @@ import {createWorld,zoneAt,zones} from './world.js';
 import {nearestInteraction,blockAt,Interactions} from './interactions.js';
 import {WorldRenderer} from './render-world.js';
 
+const STEP=1/120;
+const lerp=(a,b,k)=>a+(b-a)*k;
+
 export class Game {
   constructor(canvas,state,onOpen,debug) {
     this.canvas=canvas;this.ctx=canvas.getContext('2d');this.state=state;
     this.world=createWorld();this.player=new Player();this.camera=new Camera();
     this.interactions=new Interactions(onOpen);this.debug=debug;
     this.renderer=this.ctx?new WorldRenderer(this.world):null;this.coarse=matchMedia('(pointer:coarse)');
-    this.view={width:1,height:1,dpr:1};this.frame=0;this.previous=0;this.accumulator=0;
+    this.view={width:1,height:1,dpr:1};this.frame=0;this.previous=0;this.accumulator=0;this.alpha=1;this.prev=null;
     this.fps=0;this.frameCount=0;this.fpsStart=0;this.hovered=null;this.input=null;
     this.reduced=matchMedia('(prefers-reduced-motion:reduce)');
     this.tick=this.tick.bind(this);this.resize=this.resize.bind(this);this.sync=this.sync.bind(this);
@@ -50,11 +53,11 @@ export class Game {
   }
   teleport(x){
     if(this.state.mode!=='world')return;
-    this.player.respawn({x,y:this.world.ground-this.player.height});this.camera.update(this.player,this.world.width,0,true);this.render();
+    this.player.respawn({x,y:this.world.ground-this.player.height});this.camera.update(this.player,this.world.width,0,true);this.prev=null;this.render();
   }
   sync(){
     this.input?.clear();this.player.vx=0;
-    cancelAnimationFrame(this.frame);this.frame=0;this.previous=0;this.accumulator=0;
+    cancelAnimationFrame(this.frame);this.frame=0;this.previous=0;this.accumulator=0;this.alpha=1;
     if(!this.state.paused&&!document.hidden&&this.ctx){this.fpsStart=performance.now();this.frameCount=0;this.frame=requestAnimationFrame(this.tick);}
     this.render();
   }
@@ -62,11 +65,14 @@ export class Game {
     this.frame=0;if(this.state.paused||document.hidden)return;
     const dt=this.previous?Math.min((now-this.previous)/1000,.05):0;this.previous=now;
     this.accumulator+=dt;
-    while(this.accumulator>=1/120&&!this.state.paused){this.update(1/120);this.accumulator-=1/120;}
+    while(this.accumulator>=STEP&&!this.state.paused){this.update(STEP);this.accumulator-=STEP;}
+    // Render between the last two physics steps so motion stays smooth at any refresh rate.
+    this.alpha=Math.min(1,this.accumulator/STEP);
     this.frameCount++;if(now-this.fpsStart>=500){this.fps=Math.round(this.frameCount*1000/(now-this.fpsStart));this.fpsStart=now;this.frameCount=0;}
     this.render();if(!this.state.paused&&!document.hidden)this.frame=requestAnimationFrame(this.tick);
   }
   update(dt){
+    this.prev={px:this.player.x,py:this.player.y,cx:this.camera.x};
     const controls=this.input.sample();this.world.time+=dt;
     const hit=this.player.update(controls,dt,this.world);
     if(hit){this.interactions.activate(hit,this.world.time);if(this.state.paused)return;}
@@ -89,14 +95,21 @@ export class Game {
     }
   }
   interact(){if(this.state.mode==='world')this.interactions.activate(this.state.nearestInteraction,this.world.time);}
-  returnToStart(){this.player.respawn({x:180,y:540});this.camera.update(this.player,this.world.width,0,true);this.state.currentZone='start';this.world.checkpoint={x:180,y:540};document.querySelector('#current-area').textContent='SYSTEM START';document.querySelectorAll('[data-zone]').forEach(e=>{e.classList.remove('current');e.removeAttribute('aria-current');});this.render();}
+  returnToStart(){this.prev=null;this.player.respawn({x:180,y:540});this.camera.update(this.player,this.world.width,0,true);this.state.currentZone='start';this.world.checkpoint={x:180,y:540};document.querySelector('#current-area').textContent='SYSTEM START';document.querySelectorAll('[data-zone]').forEach(e=>{e.classList.remove('current');e.removeAttribute('aria-current');});this.render();}
   render(){
     if(!this.ctx)return;
     // Every text box drawn this frame, in CSS pixels, for layout checks (F2 exposes them).
     const labels=[];
-    this.renderer.render(this.ctx,this.world,this.player,this.camera,this.view,this.state,this.reduced.matches,this.hovered,labels);
+    const {player,camera}=this.interpolated();
+    this.renderer.render(this.ctx,this.world,player,camera,this.view,this.state,this.reduced.matches,this.hovered,labels);
     this.labels=labels;
     this.debug?.update(this);
+  }
+  // Read-only views of the player and camera, blended between physics steps for drawing.
+  interpolated(){
+    const p=this.prev,a=this.alpha;
+    if(!p||a>=1||Math.abs(p.px-this.player.x)>100)return {player:this.player,camera:this.camera};
+    return {player:Object.assign(Object.create(this.player),{x:lerp(p.px,this.player.x,a),y:lerp(p.py,this.player.y,a)}),camera:Object.assign(Object.create(this.camera),{x:lerp(p.cx,this.camera.x,a)})};
   }
   destroy(){cancelAnimationFrame(this.frame);this.hudObserver?.disconnect();removeEventListener('resize',this.resize);document.removeEventListener('visibilitychange',this.sync);this.unsubscribe();this.input?.destroy();}
 }

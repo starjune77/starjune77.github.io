@@ -1,4 +1,4 @@
-const leftKeys=new Set(['KeyA','ArrowLeft']), rightKeys=new Set(['KeyD','ArrowRight']), jumpKeys=new Set(['Space','KeyW','ArrowUp']);
+const leftKeys=new Set(['KeyA','ArrowLeft']), rightKeys=new Set(['KeyD','ArrowRight']), jumpKeys=new Set(['Space','KeyW','ArrowUp']), sprintKeys=new Set(['ShiftLeft','ShiftRight']);
 export class Input {
   constructor(state,onAction) {
     this.state=state;this.onAction=onAction;this.keys=new Set();this.touch=new Map();this.jumpQueued=false;
@@ -12,6 +12,7 @@ export class Input {
     }
     if(this.state.mode!=='world')return;
     if(/^Digit[1-8]$/.test(event.code)&&!event.repeat){this.onAction(event.code);return;}
+    if(sprintKeys.has(event.code)){this.keys.add(event.code);return;}
     if(leftKeys.has(event.code)||rightKeys.has(event.code)||jumpKeys.has(event.code)) {
       event.preventDefault();this.keys.add(event.code);
       if(jumpKeys.has(event.code)&&!event.repeat)this.jumpQueued=true;
@@ -25,7 +26,7 @@ export class Input {
     const touches=[...this.touch.values()];
     const left=[...leftKeys].some(key=>this.keys.has(key))||touches.includes('left');
     const right=[...rightKeys].some(key=>this.keys.has(key))||touches.includes('right');
-    const sample={axis:Number(right)-Number(left),jumpHeld:[...jumpKeys].some(key=>this.keys.has(key))||touches.includes('jump'),jumpPressed:this.jumpQueued};
+    const sample={axis:Number(right)-Number(left),jumpHeld:[...jumpKeys].some(key=>this.keys.has(key))||touches.includes('jump'),jumpPressed:this.jumpQueued,sprint:[...sprintKeys].some(key=>this.keys.has(key))};
     this.jumpQueued=false;return sample;
   }
   clear() { this.keys.clear();this.touch.clear();this.jumpQueued=false; }

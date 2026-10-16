@@ -7,6 +7,7 @@ import {Skyline} from './render-sky.js';
 import {Effects} from './render-fx.js';
 import {Districts} from './render-district.js';
 import {drawPlatforms,drawKiosks,kioskLights} from './render-blocks.js';
+import {RunnerRenderer} from './render-player.js';
 
 // Blends accents across district borders so the city tint shifts smoothly as you travel.
 export function accentAt(x){
@@ -18,7 +19,7 @@ export function accentAt(x){
 }
 
 export class WorldRenderer {
-  constructor(world){this.skyline=new Skyline();this.fx=new Effects();this.districts=new Districts(world);this.lastTime=null;this.renderMs=0;}
+  constructor(world){this.skyline=new Skyline();this.fx=new Effects();this.districts=new Districts(world);this.runner=new RunnerRenderer();this.lastTime=null;this.renderMs=0;}
   resize(view){this.skyline.build(view,view.lowQuality);this.fx.configure(view,view.lowQuality);}
   get particles(){return this.fx.count;}
   render(ctx,world,player,camera,view,state,reduced,hovered,labels){
@@ -48,8 +49,12 @@ export class WorldRenderer {
     drawPlatforms(ctx,world,frame);
     drawKiosks(ctx,world,frame,hovered);
     this.fx.drawSteam(ctx);
-    ctx.fillStyle='rgba(0,0,0,.45)';ctx.beginPath();ctx.ellipse(player.x+player.width/2,world.ground+4,22,4,0,0,Math.PI*2);ctx.fill();
-    player.draw(ctx,reduced);
+    // Shadow shrinks with height; the runner is mirrored faintly in the wet street.
+    const lift=Math.max(0,world.ground-player.y-player.height),shade=Math.max(.2,1-lift/220);
+    ctx.fillStyle=`rgba(0,0,0,${.5*shade})`;ctx.beginPath();ctx.ellipse(player.x+player.width/2,world.ground+3,20*shade+4,3.5*shade+1,0,0,Math.PI*2);ctx.fill();
+    this.runner.draw(ctx,player,t,reduced);
+    ctx.save();ctx.beginPath();ctx.rect(camera.x,world.ground+1,camera.width,39);ctx.clip();
+    ctx.translate(0,world.ground*2);ctx.scale(1,-1);ctx.globalAlpha=.2;this.runner.draw(ctx,player,t,reduced,{reflection:true});ctx.restore();
     worldRecord('player',player.x,player.y,player.width,player.height,'actor');
     ctx.restore();
     this.fx.drawRain(ctx);

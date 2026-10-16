@@ -121,7 +121,8 @@ async function main(){
     await key('Space',' ');await wait(200);const jumped=await debugPosition();assert(jumped.y<540,'Space jumps');
     await key('Space',' ',false);await wait(700);assert.equal((await debugPosition()).y,540,'lands on ground');
     await key('KeyA','a');await wait(250);await key('KeyA','a',false);await wait(200);assert((await debugPosition()).x<moved.x,'A moves left');
-    await key('KeyD','d');await wait(2450);await key('KeyD','d',false);await wait(250);
+    // Walk until the debug readout says the runner is under ABOUT; robust to timer jitter at 500 u/s.
+    await key('KeyD','d');for(let i=0;i<160&&(await debugPosition()).x<850;i++)await wait(20);await key('KeyD','d',false);await wait(300);
     assert.equal(await evaluate("document.querySelector('#interaction-name').textContent"),'ABOUT');
     await key('Space',' ');await until("document.querySelector('#info-panel').open");await key('Space',' ',false);
     assert.equal(await evaluate("document.querySelector('#panel-title').textContent"),'Junyoung Oh','underside hit opens About');
@@ -130,6 +131,11 @@ async function main(){
     await press('Escape','Escape');const arrowBefore=await debugPosition();
     await key('ArrowRight','ArrowRight');await wait(220);await key('ArrowRight','ArrowRight',false);await wait(200);assert((await debugPosition()).x>arrowBefore.x+30,'right arrow moves');
     await key('ArrowLeft','ArrowLeft');await wait(220);await key('ArrowLeft','ArrowLeft',false);await wait(200);assert((await debugPosition()).x<arrowBefore.x+25,'left arrow moves');
+    assert(await evaluate("document.querySelector('.tutorial-desktop').textContent.includes('Sprint')"),'tutorial shows Shift sprint');
+    const velocity=async()=>Number((await evaluate("document.querySelector('#debug-panel').textContent")).match(/VELOCITY (-?[0-9.]+)/)[1]);
+    await key('ShiftLeft','Shift');await key('KeyD','d');await wait(450);const sprintSpeed=await velocity();await key('KeyD','d',false);await key('ShiftLeft','Shift',false);await wait(200);
+    await key('KeyD','d');await wait(450);const runSpeed=await velocity();await key('KeyD','d',false);await wait(250);
+    assert(runSpeed>=480&&runSpeed<=520,'run speed '+runSpeed);assert(sprintSpeed>runSpeed*1.3,'Shift sprints: '+sprintSpeed);
     await press('KeyQ','q');assert(await evaluate("document.querySelector('#quick-view').open"));
     const quickPosition=await debugPosition();await wait(300);assert.deepEqual(await debugPosition(),quickPosition,'Quick View preserves position');
     assert.equal(await evaluate("document.querySelector('.quick-view').getBoundingClientRect().height"),900);

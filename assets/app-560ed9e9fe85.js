@@ -69,13 +69,16 @@ const {createWorld,zoneAt,zones} = load("js/world.js");
 const {nearestInteraction,blockAt,Interactions} = load("js/interactions.js");
 const {WorldRenderer} = load("js/render-world.js");
 
+const STEP=1/120;
+const lerp=(a,b,k)=>a+(b-a)*k;
+
 class Game {
   constructor(canvas,state,onOpen,debug) {
     this.canvas=canvas;this.ctx=canvas.getContext('2d');this.state=state;
     this.world=createWorld();this.player=new Player();this.camera=new Camera();
     this.interactions=new Interactions(onOpen);this.debug=debug;
     this.renderer=this.ctx?new WorldRenderer(this.world):null;this.coarse=matchMedia('(pointer:coarse)');
-    this.view={width:1,height:1,dpr:1};this.frame=0;this.previous=0;this.accumulator=0;
+    this.view={width:1,height:1,dpr:1};this.frame=0;this.previous=0;this.accumulator=0;this.alpha=1;this.prev=null;
     this.fps=0;this.frameCount=0;this.fpsStart=0;this.hovered=null;this.input=null;
     this.reduced=matchMedia('(prefers-reduced-motion:reduce)');
     this.tick=this.tick.bind(this);this.resize=this.resize.bind(this);this.sync=this.sync.bind(this);
@@ -115,11 +118,11 @@ class Game {
   }
   teleport(x){
     if(this.state.mode!=='world')return;
-    this.player.respawn({x,y:this.world.ground-this.player.height});this.camera.update(this.player,this.world.width,0,true);this.render();
+    this.player.respawn({x,y:this.world.ground-this.player.height});this.camera.update(this.player,this.world.width,0,true);this.prev=null;this.render();
   }
   sync(){
     this.input?.clear();this.player.vx=0;
-    cancelAnimationFrame(this.frame);this.frame=0;this.previous=0;this.accumulator=0;
+    cancelAnimationFrame(this.frame);this.frame=0;this.previous=0;this.accumulator=0;this.alpha=1;
     if(!this.state.paused&&!document.hidden&&this.ctx){this.fpsStart=performance.now();this.frameCount=0;this.frame=requestAnimationFrame(this.tick);}
     this.render();
   }
@@ -127,11 +130,14 @@ class Game {
     this.frame=0;if(this.state.paused||document.hidden)return;
     const dt=this.previous?Math.min((now-this.previous)/1000,.05):0;this.previous=now;
     this.accumulator+=dt;
-    while(this.accumulator>=1/120&&!this.state.paused){this.update(1/120);this.accumulator-=1/120;}
+    while(this.accumulator>=STEP&&!this.state.paused){this.update(STEP);this.accumulator-=STEP;}
+    // Render between the last two physics steps so motion stays smooth at any refresh rate.
+    this.alpha=Math.min(1,this.accumulator/STEP);
     this.frameCount++;if(now-this.fpsStart>=500){this.fps=Math.round(this.frameCount*1000/(now-this.fpsStart));this.fpsStart=now;this.frameCount=0;}
     this.render();if(!this.state.paused&&!document.hidden)this.frame=requestAnimationFrame(this.tick);
   }
   update(dt){
+    this.prev={px:this.player.x,py:this.player.y,cx:this.camera.x};
     const controls=this.input.sample();this.world.time+=dt;
     const hit=this.player.update(controls,dt,this.world);
     if(hit){this.interactions.activate(hit,this.world.time);if(this.state.paused)return;}
@@ -154,14 +160,21 @@ class Game {
     }
   }
   interact(){if(this.state.mode==='world')this.interactions.activate(this.state.nearestInteraction,this.world.time);}
-  returnToStart(){this.player.respawn({x:180,y:540});this.camera.update(this.player,this.world.width,0,true);this.state.currentZone='start';this.world.checkpoint={x:180,y:540};document.querySelector('#current-area').textContent='SYSTEM START';document.querySelectorAll('[data-zone]').forEach(e=>{e.classList.remove('current');e.removeAttribute('aria-current');});this.render();}
+  returnToStart(){this.prev=null;this.player.respawn({x:180,y:540});this.camera.update(this.player,this.world.width,0,true);this.state.currentZone='start';this.world.checkpoint={x:180,y:540};document.querySelector('#current-area').textContent='SYSTEM START';document.querySelectorAll('[data-zone]').forEach(e=>{e.classList.remove('current');e.removeAttribute('aria-current');});this.render();}
   render(){
     if(!this.ctx)return;
     // Every text box drawn this frame, in CSS pixels, for layout checks (F2 exposes them).
     const labels=[];
-    this.renderer.render(this.ctx,this.world,this.player,this.camera,this.view,this.state,this.reduced.matches,this.hovered,labels);
+    const {player,camera}=this.interpolated();
+    this.renderer.render(this.ctx,this.world,player,camera,this.view,this.state,this.reduced.matches,this.hovered,labels);
     this.labels=labels;
     this.debug?.update(this);
+  }
+  // Read-only views of the player and camera, blended between physics steps for drawing.
+  interpolated(){
+    const p=this.prev,a=this.alpha;
+    if(!p||a>=1||Math.abs(p.px-this.player.x)>100)return {player:this.player,camera:this.camera};
+    return {player:Object.assign(Object.create(this.player),{x:lerp(p.px,this.player.x,a),y:lerp(p.py,this.player.y,a)}),camera:Object.assign(Object.create(this.camera),{x:lerp(p.cx,this.camera.x,a)})};
   }
   destroy(){cancelAnimationFrame(this.frame);this.hudObserver?.disconnect();removeEventListener('resize',this.resize);document.removeEventListener('visibilitychange',this.sync);this.unsubscribe();this.input?.destroy();}
 }
@@ -171,55 +184,41 @@ return {Game};
 "js/player.js":function(load){
 const {approach,clamp} = load("js/utils.js");
 const {moveAndCollide} = load("js/physics.js");
+// Movement tuning in world units per second. Rendering lives in render-player.js.
+const MOVE = {run:500, sprint:1.35, accel:4200, decel:5300, jump:-820, gravity:2300, maxFall:1250, cutSpeed:-330, cutRate:3200};
 class Player {
   constructor(x=180,y=540) {
-    Object.assign(this,{x,y,width:28,height:60,vx:0,vy:0,grounded:true,facing:1,animation:'idle',animationTime:0,coyote:0,jumpBuffer:0,landing:0});
+    Object.assign(this,{x,y,width:28,height:60,vx:0,vy:0,grounded:true,facing:1,animation:'idle',animationTime:0,coyote:0,jumpBuffer:0,landing:0,sprinting:false});
   }
   update(input,dt,world) {
     const wasGrounded=this.grounded;
     this.coyote=this.grounded ? .09 : Math.max(0,this.coyote-dt);
     this.jumpBuffer=input.jumpPressed ? .12 : Math.max(0,this.jumpBuffer-dt);
-    this.vx=approach(this.vx,input.axis*320,(input.axis?2700:3400)*dt);
+    const top=MOVE.run*(input.sprint?MOVE.sprint:1);
+    this.vx=approach(this.vx,input.axis*top,(input.axis?MOVE.accel:MOVE.decel)*dt);
     if(input.axis) this.facing=Math.sign(input.axis);
     if(this.jumpBuffer>0 && this.coyote>0) {
-      this.vy=-700; this.grounded=false; this.coyote=0; this.jumpBuffer=0;
+      this.vy=MOVE.jump; this.grounded=false; this.coyote=0; this.jumpBuffer=0;
     }
-    this.vy=Math.min(this.vy+1700*dt,1000);
+    this.vy=Math.min(this.vy+MOVE.gravity*dt,MOVE.maxFall);
     // Releasing jump early gives a shorter, more controllable arc.
-    if(!input.jumpHeld && this.vy < -280) this.vy=approach(this.vy,-280,2400*dt);
+    if(!input.jumpHeld && this.vy < MOVE.cutSpeed) this.vy=approach(this.vy,MOVE.cutSpeed,MOVE.cutRate*dt);
     const hit=moveAndCollide(this,world.solids,dt);
     this.x=clamp(this.x,0,world.width-this.width);
-    if(!wasGrounded && this.grounded) this.landing=.1;
+    if(!wasGrounded && this.grounded) this.landing=.12;
     this.landing=Math.max(0,this.landing-dt);
+    this.sprinting=Math.abs(this.vx)>MOVE.run*1.05;
     this.animation=!this.grounded?(this.vy<0?'jump':'fall'):this.landing>0?'land':Math.abs(this.vx)>10?'run':'idle';
     this.animationTime+=dt;
     if(this.y>world.height+100) this.respawn(world.checkpoint);
     return hit;
   }
   respawn(checkpoint) {
-    this.x=checkpoint.x;this.y=checkpoint.y;this.vx=0;this.vy=0;this.grounded=true;this.jumpBuffer=0;this.coyote=0;
-  }
-  // Replace only this renderer with a sprite-sheet renderer later; physics stays independent.
-  draw(ctx,reducedMotion=false) {
-    const run=this.animation==='run', phase=this.animationTime*14;
-    const stride=run?Math.sin(phase)*8:0;
-    const bob=reducedMotion?0:run?Math.abs(Math.sin(phase))*2:this.animation==='idle'?Math.sin(this.animationTime*2)*.7:0;
-    ctx.save();ctx.translate(this.x+this.width/2,this.y+this.height-bob);ctx.scale(this.facing,1);
-    if(this.animation==='land'&&!reducedMotion) ctx.scale(1.06,.94);
-    ctx.fillStyle='#142a42';ctx.fillRect(-12,-39,24,25);
-    ctx.strokeStyle='#58a6ff';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(4,-36);ctx.lineTo(4,-19);ctx.stroke();
-    ctx.strokeStyle='#263e59';ctx.lineWidth=7;ctx.lineCap='round';
-    ctx.beginPath();ctx.moveTo(-6,-17);ctx.lineTo(-6+stride,-4);ctx.moveTo(6,-17);ctx.lineTo(6-stride,-4);ctx.stroke();
-    ctx.strokeStyle='#e5f2ff';ctx.lineWidth=4;ctx.beginPath();ctx.moveTo(-8+stride,-2);ctx.lineTo(-1+stride,-2);ctx.moveTo(3-stride,-2);ctx.lineTo(11-stride,-2);ctx.stroke();
-    ctx.strokeStyle='#38546f';ctx.lineWidth=5;ctx.beginPath();ctx.moveTo(-9,-33);ctx.lineTo(-12-stride*.4,-20);ctx.moveTo(9,-33);ctx.lineTo(12+stride*.4,-20);ctx.stroke();
-    ctx.fillStyle='#c7c5bf';ctx.beginPath();ctx.roundRect(-8,-58,17,19,5);ctx.fill();
-    ctx.fillStyle='#17202b';ctx.beginPath();ctx.roundRect(-9,-61,19,9,[5,5,1,1]);ctx.fill();ctx.fillRect(-9,-54,4,6);
-    ctx.fillStyle='#132030';ctx.fillRect(5,-50,2,2);
-    ctx.restore();
+    this.x=checkpoint.x;this.y=checkpoint.y;this.vx=0;this.vy=0;this.grounded=true;this.jumpBuffer=0;this.coyote=0;this.landing=0;
   }
 }
 
-return {Player};
+return {MOVE,Player};
 },
 "js/physics.js":function(load){
 const {overlaps} = load("js/utils.js");
@@ -248,18 +247,25 @@ return {moveAndCollide};
 },
 "js/camera.js":function(load){
 const {clamp} = load("js/utils.js");
+// Follows the player with a critically damped spring: no overshoot, no velocity jumps, and it
+// keeps up at sprint speed. The look-ahead eases too, so turning around pans instead of snapping.
+const SMOOTH_TIME=.14,LEAD_RATE=3.2;
 class Camera {
-  constructor() { this.x=0;this.y=0;this.width=1;this.height=1;this.scale=1; }
+  constructor() { this.x=0;this.y=0;this.width=1;this.height=1;this.scale=1;this.vx=0;this.lead=.38; }
   resize(width,height) {
     this.scale=clamp((height-160)/600,.65,1.2);
     this.width=width/this.scale;this.height=height/this.scale;
     this.y=600-this.height*.76;
   }
   update(player,worldWidth,dt,reduced=false) {
-    const ahead=player.facing>0?.38:.62;
-    const target=clamp(player.x+player.width/2-this.width*ahead,0,Math.max(0,worldWidth-this.width));
-    this.x=reduced?target:this.x+(target-this.x)*(1-Math.exp(-8*dt));
-    this.x=clamp(this.x,0,Math.max(0,worldWidth-this.width));
+    const limit=Math.max(0,worldWidth-this.width),desired=player.facing>0?.38:.62;
+    this.lead=reduced?desired:this.lead+(desired-this.lead)*(1-Math.exp(-LEAD_RATE*dt));
+    const target=clamp(player.x+player.width/2-this.width*this.lead,0,limit);
+    if(reduced){this.x=target;this.vx=0;return;}
+    const omega=2/SMOOTH_TIME,k=omega*dt,decay=1/(1+k+.48*k*k+.235*k*k*k);
+    const offset=this.x-target,carry=(this.vx+omega*offset)*dt;
+    this.vx=(this.vx-omega*carry)*decay;this.x=target+(offset+carry)*decay;
+    if(this.x<0||this.x>limit){this.x=clamp(this.x,0,limit);this.vx=0;}
   }
   toWorld(x,y) { return {x:x/this.scale+this.x,y:y/this.scale+this.y}; }
 }
@@ -344,6 +350,7 @@ const {Skyline} = load("js/render-sky.js");
 const {Effects} = load("js/render-fx.js");
 const {Districts} = load("js/render-district.js");
 const {drawPlatforms,drawKiosks,kioskLights} = load("js/render-blocks.js");
+const {RunnerRenderer} = load("js/render-player.js");
 
 // Blends accents across district borders so the city tint shifts smoothly as you travel.
 function accentAt(x){
@@ -355,7 +362,7 @@ function accentAt(x){
 }
 
 class WorldRenderer {
-  constructor(world){this.skyline=new Skyline();this.fx=new Effects();this.districts=new Districts(world);this.lastTime=null;this.renderMs=0;}
+  constructor(world){this.skyline=new Skyline();this.fx=new Effects();this.districts=new Districts(world);this.runner=new RunnerRenderer();this.lastTime=null;this.renderMs=0;}
   resize(view){this.skyline.build(view,view.lowQuality);this.fx.configure(view,view.lowQuality);}
   get particles(){return this.fx.count;}
   render(ctx,world,player,camera,view,state,reduced,hovered,labels){
@@ -385,8 +392,12 @@ class WorldRenderer {
     drawPlatforms(ctx,world,frame);
     drawKiosks(ctx,world,frame,hovered);
     this.fx.drawSteam(ctx);
-    ctx.fillStyle='rgba(0,0,0,.45)';ctx.beginPath();ctx.ellipse(player.x+player.width/2,world.ground+4,22,4,0,0,Math.PI*2);ctx.fill();
-    player.draw(ctx,reduced);
+    // Shadow shrinks with height; the runner is mirrored faintly in the wet street.
+    const lift=Math.max(0,world.ground-player.y-player.height),shade=Math.max(.2,1-lift/220);
+    ctx.fillStyle=`rgba(0,0,0,${.5*shade})`;ctx.beginPath();ctx.ellipse(player.x+player.width/2,world.ground+3,20*shade+4,3.5*shade+1,0,0,Math.PI*2);ctx.fill();
+    this.runner.draw(ctx,player,t,reduced);
+    ctx.save();ctx.beginPath();ctx.rect(camera.x,world.ground+1,camera.width,39);ctx.clip();
+    ctx.translate(0,world.ground*2);ctx.scale(1,-1);ctx.globalAlpha=.2;this.runner.draw(ctx,player,t,reduced,{reflection:true});ctx.restore();
     worldRecord('player',player.x,player.y,player.width,player.height,'actor');
     ctx.restore();
     this.fx.drawRain(ctx);
@@ -1096,7 +1107,7 @@ class Districts {
   }
   // Zone title plates and the identity board, placed below the HUD band.
   drawSigns(ctx,f){
-    const {camera,visible,below}=f,T=below(270),firstView=Math.max(0,194-camera.width*(camera.lead??.38));
+    const {camera,visible,below}=f,T=below(270),firstView=Math.max(0,194-camera.width*.38);
     for(const [index,zone] of zones.entries()){
       // The first title follows the identity board so narrow screens never clip it.
       const x=index?zone.start+60:Math.max(60,firstView+24);if(!visible(x-10,700))continue;
@@ -1116,7 +1127,7 @@ class Districts {
   identity(ctx,f,T){
     const {camera,t,reduced}=f,cyan=colors.cyan;
     // Fit the board inside the first view, whatever the screen width.
-    const start=Math.max(0,194-camera.width*(camera.lead??.38));
+    const start=Math.max(0,194-camera.width*.38);
     const left=Math.max(60,start+14),right=Math.min(500,start+camera.width-14),w=right-left,top=T+36,pad=w<330?12:18;
     const inner=w-pad*2;
     ctx.font=font(34,700,'sans');
@@ -1277,8 +1288,124 @@ function drawKiosks(ctx,world,f,hovered){
 
 return {kioskLights,drawPlatforms,drawKiosks};
 },
+"js/render-player.js":function(load){
+// The cyber-runner: helmet with a glowing visor, a jacket with lit trim and a scarf.
+// Drawn from jointed limbs; the run cycle is keyframed and advances with distance travelled,
+// so feet never slide. Physics stays in player.js; this only reads the player's state.
+const {colors} = load("js/palette.js");
+const {rgba,puffSprite} = load("js/render-kit.js");
+
+const STRIDE=124;
+// Eight run frames, starting at front-foot contact: [thigh, knee] for one leg; the other is half a cycle behind.
+const RUN=[[.62,.18],[.38,.4],[.06,.62],[-.3,.38],[-.62,.3],[-.36,1.22],[.18,1.55],[.56,.8]];
+const POSES={
+  idle:{a:[.13,.1],b:[-.11,.08],arms:[.12,.32,-.1,.3],lean:0,drop:0},
+  jump:{a:[.95,1.45],b:[-.38,.62],arms:[2.3,.45,-.95,.7],lean:-.04,drop:-1},
+  fall:{a:[.32,.32],b:[-.18,.55],arms:[1.85,.32,-1.45,.4],lean:.05,drop:0},
+  land:{a:[.5,1.05],b:[-.28,.95],arms:[.7,.9,-.5,.8],lean:.12,drop:4}
+};
+// Limb lengths keep the figure inside the 28 × 60 hitbox (helmet top at about -61).
+const L1=13.5,L2=12.5,A1=10,A2=10;
+const lerp=(a,b,k)=>a+(b-a)*k;
+
+class RunnerRenderer {
+  constructor(){this.pose=null;this.distance=0;this.lastX=null;this.lastTime=null;}
+  target(player,t,reduced){
+    if(player.animation==='run'){
+      const p=(this.distance/STRIDE)%1,f=p*8,i=Math.floor(f),k=f-i,j=(i+1)%8,m=(i+4)%8,n=(i+5)%8;
+      const a=[lerp(RUN[i][0],RUN[j][0],k),lerp(RUN[i][1],RUN[j][1],k)],b=[lerp(RUN[m][0],RUN[n][0],k),lerp(RUN[m][1],RUN[n][1],k)];
+      const sprint=player.sprinting?1:0;
+      return {a,b,arms:[-b[0]*.95-.1,1.25+.2*sprint,-a[0]*.95-.1,1.25+.2*sprint],lean:.13+.08*sprint,drop:Math.abs(Math.sin(p*Math.PI*2))*2.2};
+    }
+    const pose=POSES[player.animation]||POSES.idle;
+    return {...pose,drop:pose.drop+(player.animation==='idle'&&!reduced?Math.sin(t*2.2)*.7:0)};
+  }
+  draw(ctx,player,t,reduced,{reflection=false}={}){
+    const dt=this.lastTime===null?0:Math.max(0,Math.min(.05,t-this.lastTime));
+    if(!reflection){
+      if(this.lastX!==null&&Math.abs(player.x-this.lastX)<60)this.distance+=Math.abs(player.x-this.lastX);
+      this.lastX=player.x;this.lastTime=t;
+      // Blend toward the target pose so state changes never pop.
+      const goal=this.target(player,t,reduced);
+      if(!this.pose||reduced)this.pose=structuredClone(goal);
+      else {
+        const k=1-Math.exp(-dt*(player.animation==='run'?30:16));
+        for(const key of ['a','b','arms'])this.pose[key]=this.pose[key].map((v,i)=>lerp(v,goal[key][i],k));
+        this.pose.lean=lerp(this.pose.lean,goal.lean,k);this.pose.drop=lerp(this.pose.drop,goal.drop,k);
+      }
+    }
+    const pose=this.pose;if(!pose)return;
+    const cx=player.x+player.width/2,feet=player.y+player.height;
+    const squash=!reduced&&player.landing>0?player.landing/.12:0;
+    ctx.save();ctx.translate(cx,feet);ctx.scale(player.facing*(1+squash*.06),1-squash*.07);
+    if(!reflection&&player.sprinting&&!reduced)speedLines(ctx,t);
+    const hipY=-26+pose.drop,trim=colors.cyan;
+    // Back arm and leg first, in a darker shade.
+    ctx.save();ctx.translate(-1,hipY);ctx.rotate(pose.lean);
+    limb(ctx,-1,-16,pose.arms[2],pose.arms[3],A1,A2,'#2a3354','#1a1e30',4.6);
+    ctx.restore();
+    leg(ctx,1,hipY,pose.b,'#262d48','#151826',false);
+    ctx.save();ctx.translate(0,hipY);ctx.rotate(pose.lean);
+    // Scarf streams behind, more when moving fast.
+    const speed=Math.min(1,Math.abs(player.vx)/500),wave=reduced?0:Math.sin(t*11)*2.2*speed;
+    ctx.fillStyle=colors.magenta;ctx.beginPath();ctx.moveTo(-3,-20);ctx.quadraticCurveTo(-12-8*speed,-20+wave-(player.vy>50?6:0),-17-12*speed,-13+wave*1.4+(player.vy<-50?4:0));ctx.lineTo(-14-10*speed,-10+wave);ctx.quadraticCurveTo(-8,-15,-2,-15);ctx.fill();
+    // Power pack.
+    ctx.fillStyle='#1b2036';ctx.fillRect(-12,-18,5,12);ctx.fillStyle=rgba(colors.magenta,reduced?.9:.6+.4*Math.sin(t*3));ctx.fillRect(-11,-15,3,2);
+    // Jacket with glowing trim.
+    ctx.fillStyle='#36437a';ctx.beginPath();ctx.moveTo(-8,-19);ctx.lineTo(7,-19);ctx.lineTo(9,2);ctx.lineTo(4,5);ctx.lineTo(-9,3);ctx.closePath();ctx.fill();
+    ctx.fillStyle='#2a3463';ctx.fillRect(-8,-5,17,4);
+    // Magenta rim light from the street signs separates the back from the city.
+    ctx.strokeStyle=rgba(colors.magenta,.75);ctx.lineWidth=1.1;ctx.beginPath();ctx.moveTo(-8,-18);ctx.lineTo(-9,2.5);ctx.stroke();
+    ctx.strokeStyle=rgba(trim,.25);ctx.lineWidth=4;ctx.beginPath();ctx.moveTo(5,-17);ctx.lineTo(7,3);ctx.moveTo(-9,3);ctx.lineTo(4,5);ctx.stroke();
+    ctx.strokeStyle=trim;ctx.lineWidth=1.3;ctx.beginPath();ctx.moveTo(5,-17);ctx.lineTo(7,3);ctx.moveTo(-9,3);ctx.lineTo(4,5);ctx.stroke();
+    ctx.fillStyle='#4a5788';ctx.beginPath();ctx.moveTo(-7,-21);ctx.lineTo(6,-21);ctx.lineTo(4,-17);ctx.lineTo(-6,-17);ctx.closePath();ctx.fill();
+    // Helmet and visor.
+    ctx.fillStyle='#d6dbee';ctx.beginPath();ctx.ellipse(1,-27,8.2,7.8,0,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle='#aab1cb';ctx.beginPath();ctx.ellipse(-2,-24.5,5,4,0,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle='#c3c9de';ctx.fillRect(-8.6,-29.5,3,6);
+    ctx.fillStyle='#0b0d18';ctx.beginPath();ctx.moveTo(1,-31.5);ctx.lineTo(9.2,-30.5);ctx.quadraticCurveTo(10.2,-26.5,8.6,-24);ctx.lineTo(2,-25);ctx.closePath();ctx.fill();
+    const shimmer=reduced?0:(Math.sin(t*1.8)+1)*1.6;
+    ctx.fillStyle=rgba(trim,.3);ctx.fillRect(2,-30,7.6,4);ctx.fillStyle=trim;ctx.fillRect(2.5+shimmer,-28.7,4,1.6);
+    ctx.fillStyle='#8b93b3';ctx.fillRect(-6,-37,2,3.5);ctx.fillStyle=trim;ctx.fillRect(-6,-38,2,1.5);
+    ctx.restore();
+    leg(ctx,-1,hipY,pose.a,'#38426a','#1b1e30',true);
+    ctx.save();ctx.translate(1,hipY);ctx.rotate(pose.lean);
+    limb(ctx,1,-16,pose.arms[0],pose.arms[1],A1,A2,'#46538a','#20243a',4.8);
+    ctx.restore();
+    ctx.restore();
+    if(!reflection&&!reduced&&player.landing>0){
+      const k=1-player.landing/.12,s=10+k*22,sprite=puffSprite();ctx.globalAlpha=(1-k)*.5;
+      ctx.drawImage(sprite,cx-14-s/2-k*10,feet-s*.55,s,s*.6);ctx.drawImage(sprite,cx+14-s/2+k*10,feet-s*.55,s,s*.6);ctx.globalAlpha=1;
+    }
+  }
+}
+
+// Two-segment limb from (x,y): first angle from straight down (positive = forward), then the bend.
+function limb(ctx,x,y,angle,bend,l1,l2,color,end,width){
+  const jx=x+Math.sin(angle)*l1,jy=y+Math.cos(angle)*l1,second=angle+bend,ex=jx+Math.sin(second)*l2,ey=jy+Math.cos(second)*l2;
+  ctx.lineCap='round';ctx.strokeStyle=color;ctx.lineWidth=width;ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(jx,jy);ctx.lineTo(ex,ey);ctx.stroke();
+  ctx.fillStyle=end;ctx.beginPath();ctx.arc(ex,ey,2.4,0,Math.PI*2);ctx.fill();
+}
+// Legs bend backward at the knee; the boot stays roughly level with a lit sole.
+function leg(ctx,x,y,[thigh,knee],color,boot,front){
+  const kx=x+Math.sin(thigh)*L1,ky=y+Math.cos(thigh)*L1,shin=thigh-knee,ax=kx+Math.sin(shin)*L2,ay=ky+Math.cos(shin)*L2;
+  ctx.lineCap='round';ctx.strokeStyle=color;ctx.lineWidth=front?6:5.6;ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(kx,ky);ctx.lineTo(ax,ay);ctx.stroke();
+  if(front){ctx.fillStyle='#56628f';ctx.beginPath();ctx.arc(kx,ky,2.6,0,Math.PI*2);ctx.fill();}
+  ctx.save();ctx.translate(ax,ay);ctx.rotate(shin*.35);
+  ctx.fillStyle=boot;ctx.beginPath();ctx.roundRect(-3.5,-4,11,5,[2,3,1,1]);ctx.fill();
+  ctx.fillStyle=rgba(colors.cyan,front?.85:.45);ctx.fillRect(-3,.4,10,.9);
+  ctx.restore();
+}
+function speedLines(ctx,t){
+  ctx.strokeStyle=rgba(colors.cyan,.35);ctx.lineWidth=1.2;ctx.beginPath();
+  for(const [i,y] of [-42,-30,-14].entries()){const len=18+((t*40+i*9)%10);ctx.moveTo(-16-i*3,y);ctx.lineTo(-16-i*3-len,y);}
+  ctx.stroke();
+}
+
+return {RunnerRenderer};
+},
 "js/input.js":function(load){
-const leftKeys=new Set(['KeyA','ArrowLeft']), rightKeys=new Set(['KeyD','ArrowRight']), jumpKeys=new Set(['Space','KeyW','ArrowUp']);
+const leftKeys=new Set(['KeyA','ArrowLeft']), rightKeys=new Set(['KeyD','ArrowRight']), jumpKeys=new Set(['Space','KeyW','ArrowUp']), sprintKeys=new Set(['ShiftLeft','ShiftRight']);
 class Input {
   constructor(state,onAction) {
     this.state=state;this.onAction=onAction;this.keys=new Set();this.touch=new Map();this.jumpQueued=false;
@@ -1292,6 +1419,7 @@ class Input {
     }
     if(this.state.mode!=='world')return;
     if(/^Digit[1-8]$/.test(event.code)&&!event.repeat){this.onAction(event.code);return;}
+    if(sprintKeys.has(event.code)){this.keys.add(event.code);return;}
     if(leftKeys.has(event.code)||rightKeys.has(event.code)||jumpKeys.has(event.code)) {
       event.preventDefault();this.keys.add(event.code);
       if(jumpKeys.has(event.code)&&!event.repeat)this.jumpQueued=true;
@@ -1305,7 +1433,7 @@ class Input {
     const touches=[...this.touch.values()];
     const left=[...leftKeys].some(key=>this.keys.has(key))||touches.includes('left');
     const right=[...rightKeys].some(key=>this.keys.has(key))||touches.includes('right');
-    const sample={axis:Number(right)-Number(left),jumpHeld:[...jumpKeys].some(key=>this.keys.has(key))||touches.includes('jump'),jumpPressed:this.jumpQueued};
+    const sample={axis:Number(right)-Number(left),jumpHeld:[...jumpKeys].some(key=>this.keys.has(key))||touches.includes('jump'),jumpPressed:this.jumpQueued,sprint:[...sprintKeys].some(key=>this.keys.has(key))};
     this.jumpQueued=false;return sample;
   }
   clear() { this.keys.clear();this.touch.clear();this.jumpQueued=false; }

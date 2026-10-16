@@ -264,7 +264,7 @@ export class Districts {
   }
   // Zone title plates and the identity board, placed below the HUD band.
   drawSigns(ctx,f){
-    const {camera,visible,below}=f,T=below(270),firstView=Math.max(0,194-camera.width*(camera.lead??.38));
+    const {camera,visible,below}=f,T=below(270),firstView=Math.max(0,194-camera.width*.38);
     for(const [index,zone] of zones.entries()){
       // The first title follows the identity board so narrow screens never clip it.
       const x=index?zone.start+60:Math.max(60,firstView+24);if(!visible(x-10,700))continue;
@@ -284,7 +284,7 @@ export class Districts {
   identity(ctx,f,T){
     const {camera,t,reduced}=f,cyan=colors.cyan;
     // Fit the board inside the first view, whatever the screen width.
-    const start=Math.max(0,194-camera.width*(camera.lead??.38));
+    const start=Math.max(0,194-camera.width*.38);
     const left=Math.max(60,start+14),right=Math.min(500,start+camera.width-14),w=right-left,top=T+36,pad=w<330?12:18;
     const inner=w-pad*2;
     ctx.font=font(34,700,'sans');
