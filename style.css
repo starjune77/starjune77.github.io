@@ -925,7 +925,7 @@ input[type=range] {
 
 @media (prefers-reduced-motion: reduce) {
     .portfolio .skills-marquee { overflow-x: auto; mask-image: none; }
-    .skills-train[aria-hidden="true"] { display: none; }
+    .skills-train + .skills-train { display: none; }
 }
 
 .portfolio footer {

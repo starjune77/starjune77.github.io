@@ -6,10 +6,11 @@ export function aboutHTML(){return `<p>${esc(profile.bio)}</p><p class="muted">$
 export function educationHTML(){return `<h3>${esc(education.university)}</h3><p>${esc(education.dates)}</p><p>${esc(education.degree)}<br>${esc(education.major)}</p><p>${esc(education.coursework)}<br>${esc(education.campus)}</p>`;}
 export function experienceHTML(){return experience.map(item=>`<article class="experience-record"><p class="eyebrow">${esc(item.dates)}</p><h3>${esc(item.title)}</h3><p>${esc(item.role)}<br><span class="muted">${esc(item.organization)}</span></p><ul>${item.work.map(line=>`<li>${esc(line)}</li>`).join('')}</ul>${chips(item.tags)}</article>`).join('');}
 export function skillsHTML(){return Object.entries(skills).map(([category,items])=>`<div><h3>${esc(category)}</h3>${chips(items)}</div>`).join('');}
+// Decorative only: the Skills section lists the same languages for assistive technology.
 // Two identical groups keep the language train seamless at the loop boundary.
 export function skillsMarqueeHTML(){
   const items=skills.Languages.map(name=>`<li class="skill-item"><img src="assets/skills/${name.toLowerCase()}.svg" width="30" height="30" alt=""><span>${esc(name)}</span></li>`).join('');
-  return `<section id="quick-skills" class="skills-marquee" aria-label="Programming languages"><div class="skills-track"><ul class="skills-train">${items}</ul><ul class="skills-train" aria-hidden="true">${items}</ul></div></section>`;
+  return `<div class="skills-marquee" aria-hidden="true"><div class="skills-track"><ul class="skills-train">${items}</ul><ul class="skills-train">${items}</ul></div></div>`;
 }
 export function honorsHTML(){return `<ul class="honors-list">${honors.map(honor=>`<li>${esc(honor)}</li>`).join('')}</ul>`;}
 export function resumeHTML(){return `<p>Education, projects, experience, skills, and honors in one document.</p><div class="actions"><a class="button" data-resume href="${resumePath}" target="_blank" rel="noopener" aria-disabled="true" tabindex="-1">View resume ↗</a><a class="button" data-resume href="${resumePath}" download aria-disabled="true" tabindex="-1">Download PDF ↓</a></div><p class="resume-status muted" role="status">Resume PDF pending. The full portfolio is available in Quick View.</p>`;}

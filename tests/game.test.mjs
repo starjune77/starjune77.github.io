@@ -5,7 +5,8 @@ import {Camera} from '../js/camera.js';
 import {createWorld,zoneAt,zones} from '../js/world.js';
 import {nearestInteraction,Interactions} from '../js/interactions.js';
 import {createState} from '../js/utils.js';
-import {projects} from '../js/data.js';
+import {projects,skills} from '../js/data.js';
+import {quickViewHTML} from '../js/quick-view.js';
 import {readFileSync,writeFileSync,readdirSync,mkdirSync,mkdtempSync,rmSync,existsSync} from 'node:fs';
 import {join} from 'node:path';
 import {tmpdir} from 'node:os';
@@ -87,6 +88,24 @@ test('central state pauses without changing data; project modules map to preserv
   assert.deepEqual(modes,['quick','world']);
   for(const project of projects)assert(createWorld().blocks.some(b=>b.contentId===project.id));
   assert.equal(zoneAt(8700).id,'resume');assert.equal(zones.length,8);
+});
+test('Quick View has a numbered Skills section with both categories and a decorative marquee',()=>{
+  const html=quickViewHTML();
+  const ids=[...html.matchAll(/\sid="([^"]+)"/g)].map(m=>m[1]);
+  assert.equal(new Set(ids).size,ids.length,'ids are unique');
+  assert.equal(ids.filter(id=>id==='quick-skills').length,1);
+  const numbers=[...html.matchAll(/<div class="section-title"><p class="eyebrow">(\d+)<\/p><h2>([^<]+)<\/h2>/g)];
+  assert.deepEqual(numbers.map(m=>Number(m[1])),numbers.map((_,i)=>i+1),'section numbers are sequential');
+  assert.deepEqual(numbers.map(m=>m[2]).slice(0,5),['About','Featured projects','Experience','Skills','Education']);
+  const section=html.match(/<section id="quick-skills">(.*?)<\/section>/s)[1];
+  for(const [category,items] of Object.entries(skills)){
+    assert(section.includes(`<h3>${category}</h3>`),category);
+    for(const item of items)assert(section.includes(`<span>${item}</span>`),item);
+  }
+  assert(section.includes('Frameworks / technologies')&&section.includes('MediaPipe'));
+  const marquee=html.match(/<div class="skills-marquee"[^>]*>/)[0];
+  assert(marquee.includes('aria-hidden="true"')&&!marquee.includes(' id='),'marquee is decorative');
+  assert(!/<section[^>]*skills-marquee/.test(html),'marquee is not a landmark');
 });
 
 // Site build and source hygiene.

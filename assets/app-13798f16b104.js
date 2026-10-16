@@ -559,10 +559,11 @@ function aboutHTML(){return `<p>${esc(profile.bio)}</p><p class="muted">${esc(pr
 function educationHTML(){return `<h3>${esc(education.university)}</h3><p>${esc(education.dates)}</p><p>${esc(education.degree)}<br>${esc(education.major)}</p><p>${esc(education.coursework)}<br>${esc(education.campus)}</p>`;}
 function experienceHTML(){return experience.map(item=>`<article class="experience-record"><p class="eyebrow">${esc(item.dates)}</p><h3>${esc(item.title)}</h3><p>${esc(item.role)}<br><span class="muted">${esc(item.organization)}</span></p><ul>${item.work.map(line=>`<li>${esc(line)}</li>`).join('')}</ul>${chips(item.tags)}</article>`).join('');}
 function skillsHTML(){return Object.entries(skills).map(([category,items])=>`<div><h3>${esc(category)}</h3>${chips(items)}</div>`).join('');}
+// Decorative only: the Skills section lists the same languages for assistive technology.
 // Two identical groups keep the language train seamless at the loop boundary.
 function skillsMarqueeHTML(){
   const items=skills.Languages.map(name=>`<li class="skill-item"><img src="assets/skills/${name.toLowerCase()}.svg" width="30" height="30" alt=""><span>${esc(name)}</span></li>`).join('');
-  return `<section id="quick-skills" class="skills-marquee" aria-label="Programming languages"><div class="skills-track"><ul class="skills-train">${items}</ul><ul class="skills-train" aria-hidden="true">${items}</ul></div></section>`;
+  return `<div class="skills-marquee" aria-hidden="true"><div class="skills-track"><ul class="skills-train">${items}</ul><ul class="skills-train">${items}</ul></div></div>`;
 }
 function honorsHTML(){return `<ul class="honors-list">${honors.map(honor=>`<li>${esc(honor)}</li>`).join('')}</ul>`;}
 function resumeHTML(){return `<p>Education, projects, experience, skills, and honors in one document.</p><div class="actions"><a class="button" data-resume href="${resumePath}" target="_blank" rel="noopener" aria-disabled="true" tabindex="-1">View resume ↗</a><a class="button" data-resume href="${resumePath}" download aria-disabled="true" tabindex="-1">Download PDF ↓</a></div><p class="resume-status muted" role="status">Resume PDF pending. The full portfolio is available in Quick View.</p>`;}
@@ -578,10 +579,22 @@ return {chips,contactLinks,aboutHTML,educationHTML,experienceHTML,skillsHTML,ski
 },
 "js/quick-view.js":function(load){
 const {profile,education} = load("js/data.js");
-const {aboutHTML,educationHTML,experienceHTML,skillsMarqueeHTML,honorsHTML,resumeHTML,contactLinks,projectCards} = load("js/templates.js");
+const {aboutHTML,educationHTML,experienceHTML,skillsHTML,skillsMarqueeHTML,honorsHTML,resumeHTML,contactLinks,projectCards} = load("js/templates.js");
 const {escapeHTML:esc} = load("js/utils.js");
+// Section numbers come from this order, so adding or moving a section keeps them sequential.
+const sections=()=>[
+  ['quick-about','About',aboutHTML()],
+  ['quick-projects','Featured projects',`<div class="project-grid">${projectCards()}</div>`],
+  ['quick-experience','Experience',`<div class="experience-grid">${experienceHTML()}</div>`],
+  ['quick-skills','Skills',`<div class="skills-grid">${skillsHTML()}</div>`],
+  ['quick-education','Education',educationHTML()],
+  ['quick-honors','Honors',honorsHTML()],
+  ['quick-resume','Resume',resumeHTML()],
+  ['quick-contact','Let’s build something useful.',`<div class="actions">${contactLinks()}</div>`]
+];
 function quickViewHTML(){
-  return `<main class="portfolio" id="quick-main"><section class="quick-hero" aria-labelledby="quick-title"><p class="eyebrow">${esc(profile.location)}</p><h1 id="quick-title">${esc(profile.name)}</h1><p class="quick-role">${esc(profile.role)}<br>${esc(education.university)}</p><p class="identity">${esc(profile.identity)}</p><p class="tagline">${esc(profile.tagline)}</p><div class="actions"><a class="button" href="#quick-resume">View resume ↗</a>${contactLinks()}<button class="button" data-return>Return to game</button></div></section><section id="quick-about"><div class="section-title"><p class="eyebrow">01</p><h2>About</h2></div>${aboutHTML()}</section><section id="quick-projects"><div class="section-title"><p class="eyebrow">02</p><h2>Featured projects</h2></div><div class="project-grid">${projectCards()}</div></section><section id="quick-experience"><div class="section-title"><p class="eyebrow">03</p><h2>Experience</h2></div><div class="experience-grid">${experienceHTML()}</div></section><section id="quick-education"><div class="section-title"><p class="eyebrow">04</p><h2>Education</h2></div>${educationHTML()}</section><section id="quick-honors"><div class="section-title"><p class="eyebrow">05</p><h2>Honors</h2></div>${honorsHTML()}</section><section id="quick-resume"><div class="section-title"><p class="eyebrow">06</p><h2>Resume</h2></div>${resumeHTML()}</section><section id="quick-contact"><div class="section-title"><p class="eyebrow">07</p><h2>Let’s build something useful.</h2></div><div class="actions">${contactLinks()}</div></section>${skillsMarqueeHTML()}<footer>© ${new Date().getFullYear()} ${esc(profile.name)} · Built as an interactive portfolio.</footer></main>`;
+  const body=sections().map(([id,title,html],i)=>`<section id="${id}"><div class="section-title"><p class="eyebrow">${String(i+1).padStart(2,'0')}</p><h2>${esc(title)}</h2></div>${html}</section>`).join('');
+  return `<main class="portfolio" id="quick-main"><section class="quick-hero" aria-labelledby="quick-title"><p class="eyebrow">${esc(profile.location)}</p><h1 id="quick-title">${esc(profile.name)}</h1><p class="quick-role">${esc(profile.role)}<br>${esc(education.university)}</p><p class="identity">${esc(profile.identity)}</p><p class="tagline">${esc(profile.tagline)}</p><div class="actions"><a class="button" href="#quick-resume">View resume ↗</a>${contactLinks()}<button class="button" data-return>Return to game</button></div></section>${body}${skillsMarqueeHTML()}<footer>© ${new Date().getFullYear()} ${esc(profile.name)} · Built as an interactive portfolio.</footer></main>`;
 }
 function setupQuickView(dialog,overlays){
   dialog.querySelector('#quick-content').innerHTML=quickViewHTML();

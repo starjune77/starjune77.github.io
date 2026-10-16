@@ -105,6 +105,12 @@ async function main(){
     await press('KeyQ','q');assert(await evaluate("document.querySelector('#quick-view').open"));
     const quickPosition=await debugPosition();await wait(300);assert.deepEqual(await debugPosition(),quickPosition,'Quick View preserves position');
     assert.equal(await evaluate("document.querySelector('.quick-view').getBoundingClientRect().height"),900);
+    assert.equal(await evaluate("document.querySelector('.quick-header nav a[href=\"#quick-skills\"]').textContent"),'Skills');
+    await click('.quick-header nav a[href="#quick-skills"]');await wait(100);
+    assert(await evaluate("(()=>{const r=document.querySelector('#quick-skills').getBoundingClientRect();return r.top>=0&&r.top<200})()"),'Skills nav link scrolls to the Skills section');
+    assert.equal(await evaluate("document.querySelectorAll('#quick-skills .chips span').length"),14,'both skill categories listed');
+    assert(await evaluate("document.querySelector('.skills-marquee').getAttribute('aria-hidden')==='true'&&document.querySelectorAll('[id=\"quick-skills\"]').length===1"));
+    await evaluate("document.querySelector('#quick-view').scrollTop=0");
     await click('#quick-projects [data-id="morrowlab"]');assert.equal(await evaluate("document.querySelector('#panel-title').textContent"),'MorrowLab');
     await evaluate("document.querySelector('#study-hours').value=6;document.querySelector('#study-hours').dispatchEvent(new Event('input',{bubbles:true}))");
     assert.equal(await evaluate("document.querySelector('#cs-plan').textContent"),'4h 00m');
