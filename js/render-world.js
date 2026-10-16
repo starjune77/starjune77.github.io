@@ -59,7 +59,6 @@ export class WorldRenderer {
     ctx.restore();
     this.fx.drawRain(ctx);
     this.districts.drawForeground(ctx,view,cameraPx,reduced,accent);
-    this.skyline.drawFront(ctx);
     this.renderMs=this.renderMs*.9+(performance.now()-started)*.1;
   }
 }

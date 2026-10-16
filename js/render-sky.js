@@ -25,7 +25,6 @@ export class Skyline {
     this.sky=paintSky(W,H,this.G);
     this.layers=LAYERS.map(spec=>paintLayer(spec,W,H,this.G,Math.min(spec.scale,dpr)));
     this.lower=paintLower(W,H,this.G,Math.min(1.25,dpr));
-    this.vignette=paintVignette(W,H);
     this.signScale=dpr;
     return true;
   }
@@ -33,23 +32,21 @@ export class Skyline {
   drawBack(ctx,cameraPx,t,reduced,accent,safeTop,record,between){
     const {W,H,G}=this;
     ctx.drawImage(this.sky.canvas,0,0,W,H);
-    const horizon=ctx.createRadialGradient(W*.5,G,0,W*.5,G,Math.max(W,H)*.75);
-    horizon.addColorStop(0,rgba(accent,.16));horizon.addColorStop(1,rgba(accent,0));
-    ctx.fillStyle=horizon;ctx.fillRect(0,0,W,G);
+    // District tint near the horizon: one band-sized fill, not a full-screen pass.
+    const band=H*.42,horizon=ctx.createLinearGradient(0,G-band,0,G);
+    horizon.addColorStop(0,rgba(accent,0));horizon.addColorStop(1,rgba(accent,.15));
+    ctx.fillStyle=horizon;ctx.fillRect(0,G-band,W,band);
     for(const layer of this.layers){
       const offset=reduced?0:cameraPx*layer.factor;
       this.drawTiles(ctx,layer,offset);
       if(layer.id==='far')this.drawWarningLights(ctx,layer,offset,t,reduced);
       if(layer.id==='mid')this.drawBillboards(ctx,layer,offset,t,reduced,safeTop,record);
       if(layer.id==='near')this.drawSigns(ctx,layer,offset,t,reduced,safeTop,record);
-      layer.hazeStyle||=hazeGradient(ctx,layer.fog,G-layer.height,G);
-      ctx.fillStyle=layer.hazeStyle;ctx.fillRect(0,G-layer.height,W,layer.height);
       if(layer.id==='far')between?.(0);else if(layer.id==='mid')between?.(1);
     }
     const lowerOffset=reduced?0:cameraPx*.3;
     this.drawTiles(ctx,this.lower,lowerOffset);
   }
-  drawFront(ctx){ctx.drawImage(this.vignette.canvas,0,0,this.W,this.H);}
   drawTiles(ctx,layer,offset){
     const width=layer.width,start=-(((offset%width)+width)%width);
     for(let x=start;x<this.W;x+=width)ctx.drawImage(layer.canvas,x,layer.y,width,layer.height);
@@ -148,7 +145,9 @@ function paintLayer(spec,W,H,G,scale){
   }
   // Atmospheric haze: farther layers sink into purple fog near the horizon.
   const fog={far:[.0,'rgba(44,24,70,0)',.55,'rgba(44,24,70,.32)',1,'rgba(52,26,72,.7)'],mid:[.0,'rgba(26,18,48,0)',.6,'rgba(26,18,48,.2)',1,'rgba(30,20,50,.58)'],near:[.0,'rgba(20,16,36,0)',.75,'rgba(20,16,36,.08)',1,'rgba(26,20,44,.45)']}[spec.id];
-  return {...spec,canvas:s.canvas,width,height,y:G-height,slots,fog};
+  // Haze is baked into the tile, which saves a full-width fill per layer every frame.
+  ctx.fillStyle=hazeGradient(ctx,fog,0,height);ctx.fillRect(0,0,width,height);
+  return {...spec,canvas:s.canvas,width,height,y:G-height,slots};
 }
 
 function paintBuilding(ctx,layer,cfg,x,top,w,height,o){
@@ -205,11 +204,5 @@ function paintLower(W,H,G,scale){
   }
   const fog=ctx.createLinearGradient(0,0,0,height);fog.addColorStop(0,'rgba(40,26,64,.5)');fog.addColorStop(.5,'rgba(40,26,64,0)');
   ctx.fillStyle=fog;ctx.fillRect(0,0,width,height);
-  return {canvas:s.canvas,width,height,y:G-2,slots:[],fog:[0,'rgba(0,0,0,0)',1,'rgba(0,0,0,0)']};
-}
-
-function paintVignette(W,H){
-  const s=surface(W,H,.25),ctx=s.ctx,g=ctx.createRadialGradient(W/2,H*.45,Math.min(W,H)*.35,W/2,H*.45,Math.max(W,H)*.78);
-  g.addColorStop(0,'rgba(4,4,10,0)');g.addColorStop(1,'rgba(4,4,10,.55)');ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
-  return s;
+  return {canvas:s.canvas,width,height,y:G-2,slots:[]};
 }
