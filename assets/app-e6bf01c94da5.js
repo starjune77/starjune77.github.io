@@ -3,6 +3,7 @@
 const modules={"script.js":function(load){
 const {createState} = load("js/utils.js");
 const {Game} = load("js/game.js");
+const {zones} = load("js/world.js");
 const {Input} = load("js/input.js");
 const {setupOverlays,setupPanels} = load("js/panels.js");
 const {setupQuickView} = load("js/quick-view.js");
@@ -25,6 +26,7 @@ const input=new Input(state,action=>{
   else if(action==='F2'){debug.toggle();game.render();}
   else if(action==='Backquote')toggleTerminal();
   else if(action==='interact')game.interact();
+  else if(action.startsWith('Digit')&&debug.enabled)game.teleport(zones[Number(action.slice(5))-1].start+80);
 });
 game.input=input;
 document.addEventListener('click',event=>{if(event.target.closest('[data-quick]'))toggleQuick();});
@@ -76,7 +78,11 @@ class Game {
     this.fps=0;this.frameCount=0;this.fpsStart=0;this.hovered=null;this.input=null;
     this.reduced=matchMedia('(prefers-reduced-motion:reduce)');
     this.tick=this.tick.bind(this);this.resize=this.resize.bind(this);this.sync=this.sync.bind(this);
-    this.prompt=document.querySelector('#interaction-prompt');this.nearby=null;
+    this.prompt=document.querySelector('#interaction-prompt');this.nearby=null;this.labels=[];
+    // World labels are kept below everything the HUD band can show (see measureHud).
+    this.hud=['.hud-brand','#zone-progress','.quick-control','#tutorial','#zone-banner'].map(s=>document.querySelector(s)).filter(Boolean);
+    this.hudObserver=typeof ResizeObserver==='function'?new ResizeObserver(()=>{this.measureHud();if(!this.frame)this.render();}):null;
+    this.hud.forEach(element=>this.hudObserver?.observe(element));
     document.querySelector('#zone-progress').innerHTML=zones.filter(z=>z.id!=='start').map(z=>`<span data-zone="${z.id}">${z.short}</span>`).join('');
     addEventListener('resize',this.resize,{passive:true});document.addEventListener('visibilitychange',this.sync);
     this.unsubscribe=state.subscribe(this.sync);
@@ -97,7 +103,16 @@ class Game {
     this.view.width=innerWidth;this.view.height=innerHeight;this.view.dpr=Math.min(devicePixelRatio||1,2);
     this.canvas.width=Math.round(this.view.width*this.view.dpr);this.canvas.height=Math.round(this.view.height*this.view.dpr);
     this.camera.resize(this.view.width,this.view.height);this.camera.update(this.player,this.world.width,0,true);
-    this.render();
+    this.measureHud();this.render();
+  }
+  measureHud(){
+    let bottom=0;
+    for(const element of this.hud){const r=element.getBoundingClientRect();if(r.width&&r.height)bottom=Math.max(bottom,r.bottom);}
+    this.view.safeTop=bottom;
+  }
+  teleport(x){
+    if(this.state.mode!=='world')return;
+    this.player.respawn({x,y:this.world.ground-this.player.height});this.camera.update(this.player,this.world.width,0,true);this.render();
   }
   sync(){
     this.input?.clear();this.player.vx=0;
@@ -139,10 +154,14 @@ class Game {
   returnToStart(){this.player.respawn({x:180,y:540});this.camera.update(this.player,this.world.width,0,true);this.state.currentZone='start';this.world.checkpoint={x:180,y:540};document.querySelector('#current-area').textContent='SYSTEM START';document.querySelectorAll('[data-zone]').forEach(e=>{e.classList.remove('current');e.removeAttribute('aria-current');});this.render();}
   render(){
     if(!this.ctx)return;
-    renderWorld(this.ctx,this.world,this.player,this.camera,this.view,this.state,this.reduced.matches,this.hovered);
+    const labels=[];
+    renderWorld(this.ctx,this.world,this.player,this.camera,this.view,this.state,this.reduced.matches,this.hovered,labels);
+    // Recorded in world units; stored in CSS pixels for layout checks (F2 exposes them).
+    const {x,y,scale}=this.camera;
+    this.labels=labels.map(l=>({text:l.text,x:(l.x-x)*scale,y:(l.y-y)*scale,w:l.w*scale,h:l.h*scale}));
     this.debug?.update(this);
   }
-  destroy(){cancelAnimationFrame(this.frame);removeEventListener('resize',this.resize);document.removeEventListener('visibilitychange',this.sync);this.unsubscribe();this.input?.destroy();}
+  destroy(){cancelAnimationFrame(this.frame);this.hudObserver?.disconnect();removeEventListener('resize',this.resize);document.removeEventListener('visibilitychange',this.sync);this.unsubscribe();this.input?.destroy();}
 }
 
 return {Game};
@@ -319,10 +338,16 @@ function rect(ctx,x,y,w,h,fill,stroke) {
   ctx.fillStyle=fill;ctx.fillRect(x,y,w,h);
   if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=1;ctx.strokeRect(x+.5,y+.5,w-1,h-1);}
 }
+let labels=null;
+// Draws world text and records its box so layout checks can prove nothing overlaps the HUD.
 function text(ctx,label,x,y,size=12,color='#9fb2c8',align='left') {
   ctx.fillStyle=color;ctx.font=`${size>=22?'600':'400'} ${size}px ${size>=22?'Arial, sans-serif':'Consolas, monospace'}`;ctx.textAlign=align;ctx.fillText(label,x,y);
+  if(labels){const w=ctx.measureText(label).width;labels.push({text:label,x:align==='center'?x-w/2:align==='right'?x-w:x,y:y-size*.8,w,h:size});}
 }
-function renderWorld(ctx,world,player,camera,view,state,reduced,hovered) {
+function renderWorld(ctx,world,player,camera,view,state,reduced,hovered,record=null) {
+  labels=record;
+  // Highest world y a label may use: just below the HUD band at this viewport.
+  const below=y=>Math.max(y,camera.y+((view.safeTop||0)+14)/camera.scale);
   const {width,height,dpr}=view;
   ctx.setTransform(dpr,0,0,dpr,0,0);
   const background=ctx.createLinearGradient(0,0,0,height);background.addColorStop(0,'#020407');background.addColorStop(.75,'#07111c');background.addColorStop(1,'#03060b');ctx.fillStyle=background;ctx.fillRect(0,0,width,height);
@@ -341,12 +366,13 @@ function renderWorld(ctx,world,player,camera,view,state,reduced,hovered) {
   rect(ctx,0,world.ground,world.width,world.height,'#050b12');
   rect(ctx,0,world.ground,world.width,4,'#4c92d3');
   rect(ctx,0,world.ground+20,world.width,1,'#17395c');
-  for(let x=Math.floor(camera.x/80)*80;x<camera.x+camera.width;x+=80){rect(ctx,x,world.ground+20,1,35,'#16304a');text(ctx,String(Math.round(x)).padStart(5,'0'),x+6,world.ground+48,9,'#536d89');}
+  for(let x=Math.floor(camera.x/80)*80;x<camera.x+camera.width;x+=80){rect(ctx,x,world.ground+20,1,35,'#16304a');}
   for(const [index,zone] of zones.entries()) {
     if(!visible(zone.start,zone.end-zone.start))continue;
     const x=zone.start+60;
-    text(ctx,`0${index} / ${zone.label.toUpperCase()}`,x,220,12,'#527fa8');
-    rect(ctx,x,240,Math.min(650,zone.end-zone.start-120),1,'#1b3955');
+    const titleY=below(282)+10;
+    text(ctx,`0${index} / ${zone.label.toUpperCase()}`,x,titleY,12,'#527fa8');
+    rect(ctx,x,titleY+10,Math.min(650,zone.end-zone.start-120),1,'#1b3955');
     if(index>0){rect(ctx,zone.start,world.ground-150,1,150,'#1c3d59');text(ctx,'→',zone.start+14,world.ground-20,20,'#58a6ff');}
     const serverX=zone.end-150;
     rect(ctx,serverX,world.ground-112,76,112,'#0b1927','#233d55');
@@ -354,11 +380,12 @@ function renderWorld(ctx,world,player,camera,view,state,reduced,hovered) {
   }
   // A permanent identity sign in the first scene; it is not an HTML hero page.
   if(visible(60,470)) {
-    text(ctx,'JUNYOUNG OH',70,345,35,'#f4f7fc');
-    text(ctx,'COMPUTER SCIENCE · INTERACTIVE SYSTEMS · AI',72,374,11,'#7debff');
-    text(ctx,'UW–MADISON / MADISON, WI',72,399,11,'#9fb2c8');
-    text(ctx,'I build software people can experience.',72,434,14,'#c7d8e9');
-    text(ctx,'ABOUT → PROJECTS → AI → EXPERIENCE → SKILLS → RESUME → CONTACT',72,475,9,'#7392b0');
+    const top=Math.max(345,below(282)+48);
+    text(ctx,'JUNYOUNG OH',70,top,35,'#f4f7fc');
+    text(ctx,'COMPUTER SCIENCE · INTERACTIVE SYSTEMS · AI',72,top+29,11,'#7debff');
+    text(ctx,'UW–MADISON / MADISON, WI',72,top+54,11,'#9fb2c8');
+    text(ctx,'I build software people can experience.',72,top+89,14,'#c7d8e9');
+    text(ctx,'ABOUT → PROJECTS → AI → EXPERIENCE → SKILLS → RESUME → CONTACT',72,top+130,9,'#7392b0');
   }
   for(const platform of world.platforms) {
     if(!visible(platform.x,platform.width))continue;
@@ -373,13 +400,13 @@ function renderWorld(ctx,world,player,camera,view,state,reduced,hovered) {
       ctx.strokeStyle='#3a6083';ctx.strokeRect(x,y-30,40,40);
       if(state.currentZone==='ai'){ctx.strokeStyle='#7debff';ctx.strokeRect(x-9,y-39,58,58);text(ctx,`OBJECT ${String.fromCharCode(65+i)}`,x-9,y-45,8,'#7debff');}
     }
-    text(ctx,'DECORATIVE SIMULATION / NO CAMERA ACCESS',4510,world.ground+80,9,'#6e92b5');
+    text(ctx,'DECORATIVE SIMULATION / NO CAMERA ACCESS',4500,world.ground-90,9,'#6e92b5');
   }
   if(visible(6520,240)){
     ctx.strokeStyle='#284d6a';ctx.lineWidth=2;ctx.strokeRect(6550,510,120,45);
     ctx.beginPath();ctx.moveTo(6580,510);ctx.lineTo(6630,460);ctx.lineTo(6700,485);ctx.stroke();
     for(const x of [6570,6650]){ctx.beginPath();ctx.arc(x,565,17,0,Math.PI*2);ctx.stroke();}
-    text(ctx,'ROBOTICS / CAD / JAVA',6510,world.ground+80,10,'#6e92b5');
+    text(ctx,'ROBOTICS / CAD / JAVA',6550,world.ground-170,10,'#6e92b5');
   }
   for(const block of world.blocks) {
     if(!visible(block.x,block.width))continue;
@@ -404,7 +431,7 @@ function renderWorld(ctx,world,player,camera,view,state,reduced,hovered) {
   }
   ctx.fillStyle='#0009';ctx.beginPath();ctx.ellipse(player.x+14,world.ground+7,23,5,0,0,Math.PI*2);ctx.fill();
   player.draw(ctx,reduced);
-  ctx.restore();
+  ctx.restore();labels=null;
 }
 
 return {renderWorld};
@@ -423,6 +450,7 @@ class Input {
       if(!event.repeat){event.preventDefault();this.onAction(event.code);}return;
     }
     if(this.state.mode!=='world')return;
+    if(/^Digit[1-8]$/.test(event.code)&&!event.repeat){this.onAction(event.code);return;}
     if(leftKeys.has(event.code)||rightKeys.has(event.code)||jumpKeys.has(event.code)) {
       event.preventDefault();this.keys.add(event.code);
       if(jumpKeys.has(event.code)&&!event.repeat)this.jumpQueued=true;
@@ -666,11 +694,13 @@ return {setupTerminal};
 function setupDebug(state){
   const panel=document.querySelector('#debug-panel');let enabled=false,last=0;
   return {
+    get enabled(){return enabled;},
     toggle(){enabled=!enabled;panel.hidden=!enabled;},
     update(game){
       if(!enabled)return;const now=performance.now();if(now-last<150&&!state.paused)return;last=now;
       const p=game.player,c=game.camera;
-      panel.textContent=`DEBUG / F2\nFPS ${state.paused?'PAUSED':game.fps||'SAMPLING'}\nPLAYER ${p.x.toFixed(1)} / ${p.y.toFixed(1)}\nVELOCITY ${p.vx.toFixed(1)} / ${p.vy.toFixed(1)}\nGROUNDED ${p.grounded}\nCAMERA ${c.x.toFixed(1)} / ${c.y.toFixed(1)}\nZONE ${state.currentZone}\nNEAREST ${state.nearestInteraction?.id||'none'}\nMODE ${state.mode}\nVIEWPORT ${game.view.width} × ${game.view.height}`;
+      panel.textContent=`DEBUG / F2\nFPS ${state.paused?'PAUSED':game.fps||'SAMPLING'}\nPLAYER ${p.x.toFixed(1)} / ${p.y.toFixed(1)}\nVELOCITY ${p.vx.toFixed(1)} / ${p.vy.toFixed(1)}\nGROUNDED ${p.grounded}\nCAMERA ${c.x.toFixed(1)} / ${c.y.toFixed(1)}\nZONE ${state.currentZone}\nNEAREST ${state.nearestInteraction?.id||'none'}\nMODE ${state.mode}\nVIEWPORT ${game.view.width} × ${game.view.height}\nKEYS 1–8 JUMP TO DISTRICT`;
+      panel.dataset.labels=JSON.stringify(game.labels.map(l=>({text:l.text,x:Math.round(l.x),y:Math.round(l.y),w:Math.round(l.w),h:Math.round(l.h)})));
     }
   };
 }

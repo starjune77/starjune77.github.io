@@ -3,10 +3,16 @@ function rect(ctx,x,y,w,h,fill,stroke) {
   ctx.fillStyle=fill;ctx.fillRect(x,y,w,h);
   if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=1;ctx.strokeRect(x+.5,y+.5,w-1,h-1);}
 }
+let labels=null;
+// Draws world text and records its box so layout checks can prove nothing overlaps the HUD.
 function text(ctx,label,x,y,size=12,color='#9fb2c8',align='left') {
   ctx.fillStyle=color;ctx.font=`${size>=22?'600':'400'} ${size}px ${size>=22?'Arial, sans-serif':'Consolas, monospace'}`;ctx.textAlign=align;ctx.fillText(label,x,y);
+  if(labels){const w=ctx.measureText(label).width;labels.push({text:label,x:align==='center'?x-w/2:align==='right'?x-w:x,y:y-size*.8,w,h:size});}
 }
-export function renderWorld(ctx,world,player,camera,view,state,reduced,hovered) {
+export function renderWorld(ctx,world,player,camera,view,state,reduced,hovered,record=null) {
+  labels=record;
+  // Highest world y a label may use: just below the HUD band at this viewport.
+  const below=y=>Math.max(y,camera.y+((view.safeTop||0)+14)/camera.scale);
   const {width,height,dpr}=view;
   ctx.setTransform(dpr,0,0,dpr,0,0);
   const background=ctx.createLinearGradient(0,0,0,height);background.addColorStop(0,'#020407');background.addColorStop(.75,'#07111c');background.addColorStop(1,'#03060b');ctx.fillStyle=background;ctx.fillRect(0,0,width,height);
@@ -25,12 +31,13 @@ export function renderWorld(ctx,world,player,camera,view,state,reduced,hovered) 
   rect(ctx,0,world.ground,world.width,world.height,'#050b12');
   rect(ctx,0,world.ground,world.width,4,'#4c92d3');
   rect(ctx,0,world.ground+20,world.width,1,'#17395c');
-  for(let x=Math.floor(camera.x/80)*80;x<camera.x+camera.width;x+=80){rect(ctx,x,world.ground+20,1,35,'#16304a');text(ctx,String(Math.round(x)).padStart(5,'0'),x+6,world.ground+48,9,'#536d89');}
+  for(let x=Math.floor(camera.x/80)*80;x<camera.x+camera.width;x+=80){rect(ctx,x,world.ground+20,1,35,'#16304a');}
   for(const [index,zone] of zones.entries()) {
     if(!visible(zone.start,zone.end-zone.start))continue;
     const x=zone.start+60;
-    text(ctx,`0${index} / ${zone.label.toUpperCase()}`,x,220,12,'#527fa8');
-    rect(ctx,x,240,Math.min(650,zone.end-zone.start-120),1,'#1b3955');
+    const titleY=below(282)+10;
+    text(ctx,`0${index} / ${zone.label.toUpperCase()}`,x,titleY,12,'#527fa8');
+    rect(ctx,x,titleY+10,Math.min(650,zone.end-zone.start-120),1,'#1b3955');
     if(index>0){rect(ctx,zone.start,world.ground-150,1,150,'#1c3d59');text(ctx,'→',zone.start+14,world.ground-20,20,'#58a6ff');}
     const serverX=zone.end-150;
     rect(ctx,serverX,world.ground-112,76,112,'#0b1927','#233d55');
@@ -38,11 +45,12 @@ export function renderWorld(ctx,world,player,camera,view,state,reduced,hovered) 
   }
   // A permanent identity sign in the first scene; it is not an HTML hero page.
   if(visible(60,470)) {
-    text(ctx,'JUNYOUNG OH',70,345,35,'#f4f7fc');
-    text(ctx,'COMPUTER SCIENCE · INTERACTIVE SYSTEMS · AI',72,374,11,'#7debff');
-    text(ctx,'UW–MADISON / MADISON, WI',72,399,11,'#9fb2c8');
-    text(ctx,'I build software people can experience.',72,434,14,'#c7d8e9');
-    text(ctx,'ABOUT → PROJECTS → AI → EXPERIENCE → SKILLS → RESUME → CONTACT',72,475,9,'#7392b0');
+    const top=Math.max(345,below(282)+48);
+    text(ctx,'JUNYOUNG OH',70,top,35,'#f4f7fc');
+    text(ctx,'COMPUTER SCIENCE · INTERACTIVE SYSTEMS · AI',72,top+29,11,'#7debff');
+    text(ctx,'UW–MADISON / MADISON, WI',72,top+54,11,'#9fb2c8');
+    text(ctx,'I build software people can experience.',72,top+89,14,'#c7d8e9');
+    text(ctx,'ABOUT → PROJECTS → AI → EXPERIENCE → SKILLS → RESUME → CONTACT',72,top+130,9,'#7392b0');
   }
   for(const platform of world.platforms) {
     if(!visible(platform.x,platform.width))continue;
@@ -57,13 +65,13 @@ export function renderWorld(ctx,world,player,camera,view,state,reduced,hovered) 
       ctx.strokeStyle='#3a6083';ctx.strokeRect(x,y-30,40,40);
       if(state.currentZone==='ai'){ctx.strokeStyle='#7debff';ctx.strokeRect(x-9,y-39,58,58);text(ctx,`OBJECT ${String.fromCharCode(65+i)}`,x-9,y-45,8,'#7debff');}
     }
-    text(ctx,'DECORATIVE SIMULATION / NO CAMERA ACCESS',4510,world.ground+80,9,'#6e92b5');
+    text(ctx,'DECORATIVE SIMULATION / NO CAMERA ACCESS',4500,world.ground-90,9,'#6e92b5');
   }
   if(visible(6520,240)){
     ctx.strokeStyle='#284d6a';ctx.lineWidth=2;ctx.strokeRect(6550,510,120,45);
     ctx.beginPath();ctx.moveTo(6580,510);ctx.lineTo(6630,460);ctx.lineTo(6700,485);ctx.stroke();
     for(const x of [6570,6650]){ctx.beginPath();ctx.arc(x,565,17,0,Math.PI*2);ctx.stroke();}
-    text(ctx,'ROBOTICS / CAD / JAVA',6510,world.ground+80,10,'#6e92b5');
+    text(ctx,'ROBOTICS / CAD / JAVA',6550,world.ground-170,10,'#6e92b5');
   }
   for(const block of world.blocks) {
     if(!visible(block.x,block.width))continue;
@@ -88,5 +96,5 @@ export function renderWorld(ctx,world,player,camera,view,state,reduced,hovered) 
   }
   ctx.fillStyle='#0009';ctx.beginPath();ctx.ellipse(player.x+14,world.ground+7,23,5,0,0,Math.PI*2);ctx.fill();
   player.draw(ctx,reduced);
-  ctx.restore();
+  ctx.restore();labels=null;
 }

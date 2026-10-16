@@ -1,5 +1,6 @@
 import {createState} from './js/utils.js';
 import {Game} from './js/game.js';
+import {zones} from './js/world.js';
 import {Input} from './js/input.js';
 import {setupOverlays,setupPanels} from './js/panels.js';
 import {setupQuickView} from './js/quick-view.js';
@@ -22,6 +23,7 @@ const input=new Input(state,action=>{
   else if(action==='F2'){debug.toggle();game.render();}
   else if(action==='Backquote')toggleTerminal();
   else if(action==='interact')game.interact();
+  else if(action.startsWith('Digit')&&debug.enabled)game.teleport(zones[Number(action.slice(5))-1].start+80);
 });
 game.input=input;
 document.addEventListener('click',event=>{if(event.target.closest('[data-quick]'))toggleQuick();});

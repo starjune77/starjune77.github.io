@@ -289,6 +289,8 @@ kbd {
     opacity: 0;
     pointer-events: none;
     margin: 0;
+    /* A fixed slot keeps the measured HUD band stable while the text changes. */
+    min-height: 1.7em;
 }
 
 #zone-banner.show {

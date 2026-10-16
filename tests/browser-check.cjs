@@ -62,7 +62,7 @@ async function main(){
       }
       throw new Error('Timed out: '+expression+(lastError?' ('+lastError.message+')':''));
     };
-    const key=async(code,key,down=true)=>send('Input.dispatchKeyEvent',{type:down?'keyDown':'keyUp',code,key,windowsVirtualKeyCode:{KeyQ:81,KeyE:69,KeyD:68,KeyA:65,ArrowLeft:37,ArrowRight:39,Space:32,Escape:27,F2:113,Backquote:192}[code]});
+    const key=async(code,key,down=true)=>send('Input.dispatchKeyEvent',{type:down?'keyDown':'keyUp',code,key,windowsVirtualKeyCode:{KeyQ:81,KeyE:69,KeyD:68,KeyA:65,ArrowLeft:37,ArrowRight:39,Space:32,Escape:27,F2:113,Backquote:192,ShiftLeft:16,Digit1:49,Digit2:50,Digit3:51,Digit4:52,Digit5:53,Digit6:54,Digit7:55,Digit8:56}[code]});
     const press=async(code,label)=>{await key(code,label);await key(code,label,false);await wait(100);};
     const click=selector=>evaluate(`document.querySelector(${JSON.stringify(selector)}).click()`);
     const metrics=(width,height,mobile=false)=>send('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile});
@@ -84,6 +84,31 @@ async function main(){
     const debugPosition=async()=>{
       const content=await evaluate("document.querySelector('#debug-panel').textContent");
       const match=content.match(/PLAYER ([\d.]+) \/ ([\d.]+)/);return {x:Number(match[1]),y:Number(match[2])};
+    };
+    // Every visible HUD element and every in-world text box must be pairwise disjoint.
+    const layoutHits=()=>evaluate(`(()=>{
+      const shown=el=>{if(!el||el.hidden)return false;const s=getComputedStyle(el);if(s.display==='none'||s.visibility==='hidden'||Number(s.opacity)<.05)return false;const r=el.getBoundingClientRect();return r.width>0&&r.height>0;};
+      const boxes=[];
+      for(const [name,selector] of [['brand','.hud-brand'],['progress','#zone-progress'],['quick','.quick-control'],['tutorial','#tutorial'],['banner','#zone-banner'],['prompt','#interaction-prompt'],['touch-left','#mobile-controls>div:first-child'],['touch-right','#mobile-controls>div:last-child'],['footer-left','.world-footer>span:first-child'],['footer-right','.world-footer>span:last-child']]){
+        const el=document.querySelector(selector);if(!shown(el))continue;const r=el.getBoundingClientRect();boxes.push({name,x:r.x,y:r.y,w:r.width,h:r.height,dom:true});
+      }
+      const labels=JSON.parse(document.querySelector('#debug-panel').dataset.labels||'[]').filter(l=>l.x<innerWidth&&l.x+l.w>0&&l.y<innerHeight&&l.y+l.h>0).map(l=>({...l,name:'"'+l.text+'"'}));
+      const all=[...boxes,...labels],hits=[];
+      for(let i=0;i<all.length;i++)for(let j=i+1;j<all.length;j++){const a=all[i],b=all[j];if(a.x<b.x+b.w-1&&a.x+a.w>b.x+1&&a.y<b.y+b.h-1&&a.y+a.h>b.y+1)hits.push(a.name+' overlaps '+b.name);}
+      return hits;})()`);
+    const layoutFailures=[];
+    const checkLayout=async(width,height,touch)=>{
+      await metrics(width,height,touch);await send('Emulation.setTouchEmulationEnabled',{enabled:touch,maxTouchPoints:touch?5:1});
+      await navigate('/');if(touch)await click('#explore-choice');
+      await press('F2','F2');await wait(300);
+      const where=width+' × '+height+(touch?' touch':'');
+      for(const hit of await layoutHits())layoutFailures.push(where+' start: '+hit);
+      for(let zone=1;zone<=8;zone++){
+        // Checked while the arrival banner is showing, the busiest moment for the HUD.
+        await press('Digit'+zone,String(zone));await wait(350);
+        for(const hit of await layoutHits())layoutFailures.push(where+' district '+zone+': '+hit);
+      }
+      console.log('checked layout '+where);
     };
     await send('Page.enable');await send('Page.setLifecycleEventsEnabled',{enabled:true});await send('Runtime.enable');
     await metrics(1440,900);await navigate('/');await screenshot('world-desktop');
@@ -152,6 +177,9 @@ async function main(){
     assert(await evaluate("document.querySelector('a[href=\"https://github.com/starjune77\"]').rel.includes('noopener')"));
     await metrics(844,390,true);await wait(100);assert(await evaluate("document.querySelector('#quick-view').scrollWidth<=document.querySelector('#quick-view').clientWidth+1"),'landscape Quick View');
     await click('.return-button');assert(await evaluate("document.querySelector('[data-touch=\"jump\"]').getBoundingClientRect().bottom<=innerHeight"),'landscape controls');
+    for(const [width,height] of [[1920,1080],[1440,900],[1366,768],[1280,720],[1024,768],[768,1024],[430,932],[390,844]])await checkLayout(width,height,false);
+    await checkLayout(390,844,true);await checkLayout(844,390,true);
+    assert.deepEqual(layoutFailures,[],'HUD, tutorial, prompt and world labels never overlap');
     const fallback=await send('Page.addScriptToEvaluateOnNewDocument',{source:"HTMLCanvasElement.prototype.getContext=()=>null"});
     await navigate('/');assert(await evaluate("document.querySelector('#quick-view').open"),'Canvas unavailable opens complete semantic portfolio');
     await send('Page.removeScriptToEvaluateOnNewDocument',{identifier:fallback.identifier});

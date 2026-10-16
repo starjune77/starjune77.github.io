@@ -11,6 +11,7 @@ export class Input {
       if(!event.repeat){event.preventDefault();this.onAction(event.code);}return;
     }
     if(this.state.mode!=='world')return;
+    if(/^Digit[1-8]$/.test(event.code)&&!event.repeat){this.onAction(event.code);return;}
     if(leftKeys.has(event.code)||rightKeys.has(event.code)||jumpKeys.has(event.code)) {
       event.preventDefault();this.keys.add(event.code);
       if(jumpKeys.has(event.code)&&!event.repeat)this.jumpQueued=true;

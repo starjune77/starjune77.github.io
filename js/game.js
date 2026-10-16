@@ -13,7 +13,11 @@ export class Game {
     this.fps=0;this.frameCount=0;this.fpsStart=0;this.hovered=null;this.input=null;
     this.reduced=matchMedia('(prefers-reduced-motion:reduce)');
     this.tick=this.tick.bind(this);this.resize=this.resize.bind(this);this.sync=this.sync.bind(this);
-    this.prompt=document.querySelector('#interaction-prompt');this.nearby=null;
+    this.prompt=document.querySelector('#interaction-prompt');this.nearby=null;this.labels=[];
+    // World labels are kept below everything the HUD band can show (see measureHud).
+    this.hud=['.hud-brand','#zone-progress','.quick-control','#tutorial','#zone-banner'].map(s=>document.querySelector(s)).filter(Boolean);
+    this.hudObserver=typeof ResizeObserver==='function'?new ResizeObserver(()=>{this.measureHud();if(!this.frame)this.render();}):null;
+    this.hud.forEach(element=>this.hudObserver?.observe(element));
     document.querySelector('#zone-progress').innerHTML=zones.filter(z=>z.id!=='start').map(z=>`<span data-zone="${z.id}">${z.short}</span>`).join('');
     addEventListener('resize',this.resize,{passive:true});document.addEventListener('visibilitychange',this.sync);
     this.unsubscribe=state.subscribe(this.sync);
@@ -34,7 +38,16 @@ export class Game {
     this.view.width=innerWidth;this.view.height=innerHeight;this.view.dpr=Math.min(devicePixelRatio||1,2);
     this.canvas.width=Math.round(this.view.width*this.view.dpr);this.canvas.height=Math.round(this.view.height*this.view.dpr);
     this.camera.resize(this.view.width,this.view.height);this.camera.update(this.player,this.world.width,0,true);
-    this.render();
+    this.measureHud();this.render();
+  }
+  measureHud(){
+    let bottom=0;
+    for(const element of this.hud){const r=element.getBoundingClientRect();if(r.width&&r.height)bottom=Math.max(bottom,r.bottom);}
+    this.view.safeTop=bottom;
+  }
+  teleport(x){
+    if(this.state.mode!=='world')return;
+    this.player.respawn({x,y:this.world.ground-this.player.height});this.camera.update(this.player,this.world.width,0,true);this.render();
   }
   sync(){
     this.input?.clear();this.player.vx=0;
@@ -76,8 +89,12 @@ export class Game {
   returnToStart(){this.player.respawn({x:180,y:540});this.camera.update(this.player,this.world.width,0,true);this.state.currentZone='start';this.world.checkpoint={x:180,y:540};document.querySelector('#current-area').textContent='SYSTEM START';document.querySelectorAll('[data-zone]').forEach(e=>{e.classList.remove('current');e.removeAttribute('aria-current');});this.render();}
   render(){
     if(!this.ctx)return;
-    renderWorld(this.ctx,this.world,this.player,this.camera,this.view,this.state,this.reduced.matches,this.hovered);
+    const labels=[];
+    renderWorld(this.ctx,this.world,this.player,this.camera,this.view,this.state,this.reduced.matches,this.hovered,labels);
+    // Recorded in world units; stored in CSS pixels for layout checks (F2 exposes them).
+    const {x,y,scale}=this.camera;
+    this.labels=labels.map(l=>({text:l.text,x:(l.x-x)*scale,y:(l.y-y)*scale,w:l.w*scale,h:l.h*scale}));
     this.debug?.update(this);
   }
-  destroy(){cancelAnimationFrame(this.frame);removeEventListener('resize',this.resize);document.removeEventListener('visibilitychange',this.sync);this.unsubscribe();this.input?.destroy();}
+  destroy(){cancelAnimationFrame(this.frame);this.hudObserver?.disconnect();removeEventListener('resize',this.resize);document.removeEventListener('visibilitychange',this.sync);this.unsubscribe();this.input?.destroy();}
 }
