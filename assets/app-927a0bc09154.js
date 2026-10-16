@@ -68,6 +68,7 @@ const {Camera} = load("js/camera.js");
 const {createWorld,zoneAt,zones} = load("js/world.js");
 const {nearestInteraction,blockAt,Interactions} = load("js/interactions.js");
 const {WorldRenderer} = load("js/render-world.js");
+const {accentFor} = load("js/palette.js");
 
 const STEP=1/120;
 const lerp=(a,b,k)=>a+(b-a)*k;
@@ -147,7 +148,9 @@ class Game {
       this.state.currentZone=zone.id;this.state.discovered.add(zone.id);
       this.world.checkpoint={x:zone.start+80,y:this.world.ground-this.player.height};
       document.querySelector('#current-area').textContent=zone.label.toUpperCase();
-      document.querySelectorAll('[data-zone]').forEach(element=>{const current=element.dataset.zone===zone.id;element.classList.toggle('current',current);if(current)element.setAttribute('aria-current','location');else element.removeAttribute('aria-current');});
+      // The HUD takes on the district's accent colour.
+      document.documentElement.style.setProperty('--district',accentFor(zone.id));
+      document.querySelectorAll('[data-zone]').forEach(element=>{const current=element.dataset.zone===zone.id;element.classList.toggle('current',current);element.classList.toggle('visited',this.state.discovered.has(element.dataset.zone));if(current)element.setAttribute('aria-current','location');else element.removeAttribute('aria-current');});
       const banner=document.querySelector('#zone-banner');banner.textContent=zone.label;banner.classList.remove('show');void banner.offsetWidth;banner.classList.add('show');
     }
     if(this.player.x>220&&!this.tutorialMinimized){this.tutorialMinimized=true;document.querySelector('#tutorial').classList.add('minimized');}
@@ -160,7 +163,7 @@ class Game {
     }
   }
   interact(){if(this.state.mode==='world')this.interactions.activate(this.state.nearestInteraction,this.world.time);}
-  returnToStart(){this.prev=null;this.player.respawn({x:180,y:540});this.camera.update(this.player,this.world.width,0,true);this.state.currentZone='start';this.world.checkpoint={x:180,y:540};document.querySelector('#current-area').textContent='SYSTEM START';document.querySelectorAll('[data-zone]').forEach(e=>{e.classList.remove('current');e.removeAttribute('aria-current');});this.render();}
+  returnToStart(){this.prev=null;this.player.respawn({x:180,y:540});this.camera.update(this.player,this.world.width,0,true);this.state.currentZone='start';this.world.checkpoint={x:180,y:540};document.querySelector('#current-area').textContent='SYSTEM START';document.documentElement.style.setProperty('--district',accentFor('start'));document.querySelectorAll('[data-zone]').forEach(e=>{e.classList.remove('current');e.removeAttribute('aria-current');});this.render();}
   render(){
     if(!this.ctx)return;
     // Every text box drawn this frame, in CSS pixels, for layout checks (F2 exposes them).
@@ -1551,7 +1554,8 @@ return {projects,skills,profile,education,experience,honors,contact,resumePath};
 const {profile,education,experience,skills,honors,contact,projects,resumePath} = load("js/data.js");
 const {escapeHTML:esc} = load("js/utils.js");
 const chips=items=>`<div class="chips">${items.map(item=>`<span>${esc(item)}</span>`).join('')}</div>`;
-const contactLinks=()=>`<a class="button primary" href="mailto:${contact.email}">Email me ↗</a><a class="button" href="${contact.github}" target="_blank" rel="noopener">GitHub ↗</a><a class="button" href="${contact.linkedin}" target="_blank" rel="noopener">LinkedIn ↗</a>`;
+const icon=name=>`<span class="icon icon-${name}" aria-hidden="true"></span>`;
+const contactLinks=()=>`<a class="button primary" href="mailto:${contact.email}">${icon('mail')}Email me ↗</a><a class="button" href="${contact.github}" target="_blank" rel="noopener">${icon('code')}GitHub ↗</a><a class="button" href="${contact.linkedin}" target="_blank" rel="noopener">${icon('network')}LinkedIn ↗</a>`;
 function aboutHTML(){return `<p>${esc(profile.bio)}</p><p class="muted">${esc(profile.location)}</p><h3>Professional interests</h3>${chips(profile.interests)}`;}
 function educationHTML(){return `<h3>${esc(education.university)}</h3><p>${esc(education.dates)}</p><p>${esc(education.degree)}<br>${esc(education.major)}</p><p>${esc(education.coursework)}<br>${esc(education.campus)}</p>`;}
 function experienceHTML(){return experience.map(item=>`<article class="experience-record"><p class="eyebrow">${esc(item.dates)}</p><h3>${esc(item.title)}</h3><p>${esc(item.role)}<br><span class="muted">${esc(item.organization)}</span></p><ul>${item.work.map(line=>`<li>${esc(line)}</li>`).join('')}</ul>${chips(item.tags)}</article>`).join('');}
@@ -1563,7 +1567,7 @@ function skillsMarqueeHTML(){
   return `<div class="skills-marquee" aria-hidden="true"><div class="skills-track"><ul class="skills-train">${items}</ul><ul class="skills-train">${items}</ul></div></div>`;
 }
 function honorsHTML(){return `<ul class="honors-list">${honors.map(honor=>`<li>${esc(honor)}</li>`).join('')}</ul>`;}
-function resumeHTML(){return `<p>Education, projects, experience, skills, and honors in one document.</p><div class="actions"><a class="button" data-resume href="${resumePath}" target="_blank" rel="noopener" aria-disabled="true" tabindex="-1">View resume ↗</a><a class="button" data-resume href="${resumePath}" download aria-disabled="true" tabindex="-1">Download PDF ↓</a></div><p class="resume-status muted" role="status">Resume PDF pending. The full portfolio is available in Quick View.</p>`;}
+function resumeHTML(){return `<p>Education, projects, experience, skills, and honors in one document.</p><div class="actions"><a class="button" data-resume href="${resumePath}" target="_blank" rel="noopener" aria-disabled="true" tabindex="-1">${icon('file')}View resume ↗</a><a class="button" data-resume href="${resumePath}" download aria-disabled="true" tabindex="-1">${icon('file')}Download PDF ↓</a></div><p class="resume-status muted" role="status">Resume PDF pending. The full portfolio is available in Quick View.</p>`;}
 function projectCards(){return projects.map((p,i)=>`<article class="project-card ${i===0?'featured':''}"><p class="eyebrow">0${i+1} / ${esc(p.type)}</p><h3>${esc(p.title)}</h3><p class="context">${esc(p.context)}${p.role?`<br>${esc(p.role)}`:''}</p><p>${esc(p.description)}</p>${chips(p.technologies)}<button class="text-button" data-open="project" data-id="${p.id}">Read project details ↗</button></article>`).join('');}
 function morrowDemo(){return `<div class="demo"><p class="eyebrow">REPRESENTATIVE PORTFOLIO INTERFACE / SAMPLE DATA</p><h3>Today → Tomorrow</h3><div class="sample-stats"><div>Study time<strong>4h 21m</strong></div><div>Focus sessions<strong>5</strong></div><div>Tasks<strong>6 / 8</strong></div></div><label for="study-hours">Available time <output id="hours-output">3 hours</output></label><input id="study-hours" type="range" min="1" max="6" value="3"><div class="plan"><span>CS 300 <strong id="cs-plan">2h 00m</strong></span><span>Reading <strong id="reading-plan">1h 00m</strong></span></div><p class="demo-note">Fictional sample data and illustrative allocation. This is not the original application or its recommendation algorithm.</p></div>`;}
 function aiDemo(){return `<div class="demo"><p class="eyebrow">ABSTRACT DETECTION / PORTFOLIO SIMULATION</p><div class="detection-scene"><div class="shape shape-a"></div><div class="shape shape-b"></div><div class="shape shape-c"></div><div class="bounding box-a"><span>OBJECT A</span></div><div class="bounding box-b"><span>OBJECT B</span></div><div class="bounding box-c"><span>OBJECT C</span></div><div class="scan-line"></div></div><button class="button" id="detection-toggle" aria-pressed="true">Detection overlay: ON</button><p class="demo-note">Abstract shapes and illustrative bounding boxes. No inference, camera access, or performance claims.</p></div>`;}
@@ -1591,7 +1595,7 @@ const sections=()=>[
 ];
 function quickViewHTML(){
   const body=sections().map(([id,title,html],i)=>`<section id="${id}"><div class="section-title"><p class="eyebrow">${String(i+1).padStart(2,'0')}</p><h2>${esc(title)}</h2></div>${html}</section>`).join('');
-  return `<main class="portfolio" id="quick-main"><section class="quick-hero" aria-labelledby="quick-title"><p class="eyebrow">${esc(profile.location)}</p><h1 id="quick-title">${esc(profile.name)}</h1><p class="quick-role">${esc(profile.role)}<br>${esc(education.university)}</p><p class="identity">${esc(profile.identity)}</p><p class="tagline">${esc(profile.tagline)}</p><div class="actions"><a class="button" href="#quick-resume">View resume ↗</a>${contactLinks()}<button class="button" data-return>Return to game</button></div></section>${body}${skillsMarqueeHTML()}<footer>© ${new Date().getFullYear()} ${esc(profile.name)} · Built as an interactive portfolio.</footer></main>`;
+  return `<main class="portfolio" id="quick-main"><section class="quick-hero" aria-labelledby="quick-title"><img class="hero-skyline" src="assets/accents/skyline.svg" width="640" height="170" alt=""><p class="eyebrow">${esc(profile.location)}</p><h1 id="quick-title">${esc(profile.name)}</h1><p class="quick-role">${esc(profile.role)}<br>${esc(education.university)}</p><p class="identity">${esc(profile.identity)}</p><p class="tagline">${esc(profile.tagline)}</p><div class="actions"><a class="button" href="#quick-resume">View resume ↗</a>${contactLinks()}<button class="button" data-return>Return to game</button></div></section>${body}${skillsMarqueeHTML()}<footer>© ${new Date().getFullYear()} ${esc(profile.name)} · Built as an interactive portfolio.</footer></main>`;
 }
 function setupQuickView(dialog,overlays){
   dialog.querySelector('#quick-content').innerHTML=quickViewHTML();

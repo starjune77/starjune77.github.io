@@ -97,6 +97,29 @@ async function main(){
       // HUD vs anything; world text vs world text. Background signage and the player only count against the HUD.
       for(let i=0;i<all.length;i++)for(let j=i+1;j<all.length;j++){const a=all[i],b=all[j];if(!a.dom&&!b.dom&&(a.kind!=='text'||b.kind!=='text'))continue;if(a.x<b.x+b.w-1&&a.x+a.w>b.x+1&&a.y<b.y+b.h-1&&a.y+a.h>b.y+1)hits.push(a.name+' overlaps '+b.name);}
       return hits;})()`);
+    // WCAG contrast for every visible text element in a container, resolving chamfer fills (::after).
+    const contrastFailures=root=>evaluate(`(()=>{
+      const parse=c=>{const m=c.match(/[\\d.]+/g)||[0,0,0,0];return {r:+m[0],g:+m[1],b:+m[2],a:m[3]===undefined?1:+m[3]};};
+      const lum=({r,g,b})=>{const f=v=>{v/=255;return v<=.03928?v/12.92:((v+.055)/1.055)**2.4;};return .2126*f(r)+.7152*f(g)+.0722*f(b);};
+      const over=(top,base)=>({r:top.r*top.a+base.r*(1-top.a),g:top.g*top.a+base.g*(1-top.a),b:top.b*top.a+base.b*(1-top.a),a:1});
+      const background=el=>{
+        for(let n=el;n;n=n.parentElement){
+          const after=getComputedStyle(n,'::after'),own=parse(getComputedStyle(n).backgroundColor);
+          if(n.matches('.button,.chamfer')&&after.content!=='none'){const fill=parse(after.backgroundColor);if(fill.a>.5)return over(fill,{r:10,g:11,b:18,a:1});}
+          if(own.a>.5)return over(own,{r:10,g:11,b:18,a:1});
+        }
+        return {r:10,g:11,b:18,a:1};
+      };
+      const failures=[];
+      for(const el of document.querySelector(${JSON.stringify('ROOT')}).querySelectorAll('h1,h2,h3,p,li,a,button,span,strong,label,output')){
+        if(el.closest('[aria-hidden="true"],[aria-disabled="true"],:disabled'))continue;
+        const text=[...el.childNodes].filter(n=>n.nodeType===3).map(n=>n.textContent).join('').trim();if(!text)continue;
+        const s=getComputedStyle(el),r=el.getBoundingClientRect();if(!r.width||s.visibility==='hidden'||Number(s.opacity)<.99)continue;
+        const bg=background(el),fg=over(parse(s.color),bg),[a,b]=[lum(fg),lum(bg)],ratio=(Math.max(a,b)+.05)/(Math.min(a,b)+.05);
+        const size=parseFloat(s.fontSize),large=size>=24||(size>=18.66&&Number(s.fontWeight)>=700);
+        if(ratio<(large?3:4.5))failures.push(text.slice(0,30)+' '+ratio.toFixed(2));
+      }
+      return failures;})()`.replace('"ROOT"',JSON.stringify(root)));
     const layoutFailures=[];
     const checkLayout=async(width,height,touch)=>{
       await metrics(width,height,touch);await send('Emulation.setTouchEmulationEnabled',{enabled:touch,maxTouchPoints:touch?5:1});
@@ -146,6 +169,7 @@ async function main(){
     assert(await evaluate("document.querySelector('.skills-marquee').getAttribute('aria-hidden')==='true'&&document.querySelectorAll('[id=\"quick-skills\"]').length===1"));
     await evaluate("document.querySelector('#quick-view').scrollTop=0");
     await click('#quick-projects [data-id="morrowlab"]');assert.equal(await evaluate("document.querySelector('#panel-title').textContent"),'MorrowLab');
+    assert.deepEqual(await contrastFailures('#info-panel'),[],'info panel text meets WCAG AA');
     await evaluate("document.querySelector('#study-hours').value=6;document.querySelector('#study-hours').dispatchEvent(new Event('input',{bubbles:true}))");
     assert.equal(await evaluate("document.querySelector('#cs-plan').textContent"),'4h 00m');
     await press('Escape','Escape');assert(await evaluate("document.querySelector('#quick-view').open"),'nested panel returns to Quick View');
@@ -161,6 +185,7 @@ async function main(){
       const quick=await evaluate("(()=>{const r=document.querySelector('.quick-control').getBoundingClientRect();return {right:r.right,top:r.top,bottom:r.bottom}})()");
       assert(quick.right<=width&&quick.top>=0&&quick.bottom<height,'HUD fits '+width);
       await press('KeyQ','q');assert(await evaluate("document.querySelector('#quick-view').scrollWidth<=document.querySelector('#quick-view').clientWidth+1"),'Quick View no horizontal overflow '+width);
+      if(width===1440||width===390)assert.deepEqual(await contrastFailures('#quick-view'),[],'Quick View text meets WCAG AA at '+width);
       await evaluate("document.querySelector('#quick-view').scrollTop=1200");assert(await evaluate("document.querySelector('#quick-view').scrollTop>0"));
       if(width===390){await evaluate("document.querySelector('#quick-view').scrollTop=0");await screenshot('quick-mobile');}
       await press('KeyQ','q');console.log('PASS viewport '+width+' × '+height);

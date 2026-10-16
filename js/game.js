@@ -3,6 +3,7 @@ import {Camera} from './camera.js';
 import {createWorld,zoneAt,zones} from './world.js';
 import {nearestInteraction,blockAt,Interactions} from './interactions.js';
 import {WorldRenderer} from './render-world.js';
+import {accentFor} from './palette.js';
 
 const STEP=1/120;
 const lerp=(a,b,k)=>a+(b-a)*k;
@@ -82,7 +83,9 @@ export class Game {
       this.state.currentZone=zone.id;this.state.discovered.add(zone.id);
       this.world.checkpoint={x:zone.start+80,y:this.world.ground-this.player.height};
       document.querySelector('#current-area').textContent=zone.label.toUpperCase();
-      document.querySelectorAll('[data-zone]').forEach(element=>{const current=element.dataset.zone===zone.id;element.classList.toggle('current',current);if(current)element.setAttribute('aria-current','location');else element.removeAttribute('aria-current');});
+      // The HUD takes on the district's accent colour.
+      document.documentElement.style.setProperty('--district',accentFor(zone.id));
+      document.querySelectorAll('[data-zone]').forEach(element=>{const current=element.dataset.zone===zone.id;element.classList.toggle('current',current);element.classList.toggle('visited',this.state.discovered.has(element.dataset.zone));if(current)element.setAttribute('aria-current','location');else element.removeAttribute('aria-current');});
       const banner=document.querySelector('#zone-banner');banner.textContent=zone.label;banner.classList.remove('show');void banner.offsetWidth;banner.classList.add('show');
     }
     if(this.player.x>220&&!this.tutorialMinimized){this.tutorialMinimized=true;document.querySelector('#tutorial').classList.add('minimized');}
@@ -95,7 +98,7 @@ export class Game {
     }
   }
   interact(){if(this.state.mode==='world')this.interactions.activate(this.state.nearestInteraction,this.world.time);}
-  returnToStart(){this.prev=null;this.player.respawn({x:180,y:540});this.camera.update(this.player,this.world.width,0,true);this.state.currentZone='start';this.world.checkpoint={x:180,y:540};document.querySelector('#current-area').textContent='SYSTEM START';document.querySelectorAll('[data-zone]').forEach(e=>{e.classList.remove('current');e.removeAttribute('aria-current');});this.render();}
+  returnToStart(){this.prev=null;this.player.respawn({x:180,y:540});this.camera.update(this.player,this.world.width,0,true);this.state.currentZone='start';this.world.checkpoint={x:180,y:540};document.querySelector('#current-area').textContent='SYSTEM START';document.documentElement.style.setProperty('--district',accentFor('start'));document.querySelectorAll('[data-zone]').forEach(e=>{e.classList.remove('current');e.removeAttribute('aria-current');});this.render();}
   render(){
     if(!this.ctx)return;
     // Every text box drawn this frame, in CSS pixels, for layout checks (F2 exposes them).
