@@ -8,13 +8,25 @@ const assert=require('node:assert/strict');
 const {createServer}=require('../tools/preview.cjs');
 const wait=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 
+function findChrome(){
+  if(process.env.CHROME_PATH)return process.env.CHROME_PATH;
+  const windows=[process.env.PROGRAMFILES,process.env['PROGRAMFILES(X86)'],process.env.LOCALAPPDATA].filter(Boolean)
+    .flatMap(base=>[path.join(base,'Google','Chrome','Application','chrome.exe'),path.join(base,'Chromium','Application','chrome.exe')]);
+  const mac=['/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',path.join(os.homedir(),'Applications/Google Chrome.app/Contents/MacOS/Google Chrome'),'/Applications/Chromium.app/Contents/MacOS/Chromium'];
+  const linux=['/usr/bin/google-chrome','/usr/bin/google-chrome-stable','/usr/bin/chromium','/usr/bin/chromium-browser','/snap/bin/chromium'];
+  return ({win32:windows,darwin:mac}[process.platform]||linux).find(file=>fs.existsSync(file));
+}
+
 async function main(){
-  const chrome=process.env.CHROME_PATH||'C:/Program Files/Google/Chrome/Application/chrome.exe';
-  if(!fs.existsSync(chrome))throw new Error('Set CHROME_PATH to your installed Chrome executable.');
+  const chrome=findChrome();
+  if(!chrome||!fs.existsSync(chrome))throw new Error('Chrome not found. Set CHROME_PATH to your installed Chrome or Chromium executable.');
   const output=fs.mkdtempSync(path.join(os.tmpdir(),'junyoung-browser-'));
   const server=createServer();await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
   const url=`http://127.0.0.1:${server.address().port}`;
-  const processHandle=spawn(chrome,['--headless=new','--remote-debugging-port=0',`--user-data-dir=${path.join(output,'profile')}`,'--no-first-run','--no-default-browser-check','about:blank'],{windowsHide:true,stdio:'ignore'});
+  const flags=['--headless=new','--remote-debugging-port=0',`--user-data-dir=${path.join(output,'profile')}`,'--no-first-run','--no-default-browser-check'];
+  // Chrome refuses to start as root on Linux (containers, CI) unless the sandbox is disabled.
+  if(process.platform==='linux'&&process.getuid?.()===0)flags.push('--no-sandbox');
+  const processHandle=spawn(chrome,[...flags,'about:blank'],{windowsHide:true,stdio:'ignore'});
   let socket;
   try{
     const portFile=path.join(output,'profile','DevToolsActivePort');
@@ -25,10 +37,11 @@ async function main(){
     socket=new WebSocket(targets.find(t=>t.type==='page').webSocketDebuggerUrl);
     await new Promise((resolve,reject)=>{const timeout=setTimeout(()=>reject(new Error('Chrome WebSocket timed out')),8000);socket.onopen=()=>{clearTimeout(timeout);resolve();};socket.onerror=reject;});
     console.log('Chrome connected.');
-    let nextId=0;const pending=new Map(),errors=[];
+    let nextId=0;const pending=new Map(),errors=[],lifecycle=[];
     socket.onmessage=event=>{
       const message=JSON.parse(event.data);
       if(message.id){const item=pending.get(message.id);if(!item)return;pending.delete(message.id);clearTimeout(item.timeout);message.error?item.reject(new Error(JSON.stringify(message.error))):item.resolve(message.result);}
+      else if(message.method==='Page.lifecycleEvent')lifecycle.push(message.params);
       else if(message.method==='Runtime.exceptionThrown')errors.push(message.params.exceptionDetails.text+': '+message.params.exceptionDetails.exception?.description);
       else if(message.method==='Runtime.consoleAPICalled'&&message.params.type==='error')errors.push(JSON.stringify(message.params.args));
       else if(message.method==='Fetch.requestPaused')send('Fetch.fulfillRequest',{requestId:message.params.requestId,responseCode:200,responseHeaders:[{name:'Content-Type',value:'application/pdf'}]}).catch(error=>errors.push(error.message));
@@ -40,18 +53,39 @@ async function main(){
       if(result.exceptionDetails)throw new Error(result.exceptionDetails.exception?.description||result.exceptionDetails.text);
       return result.result.value;
     };
-    const until=async expression=>{for(let i=0;i<100;i++){if(await evaluate(expression))return;await wait(50);}throw new Error('Timed out: '+expression);};
+    // Evaluation can fail while a navigation swaps the execution context; retry until the deadline.
+    const until=async(expression,timeout=5000)=>{
+      const deadline=Date.now()+timeout;let lastError;
+      while(Date.now()<deadline){
+        try{if(await evaluate(expression))return;lastError=null;}catch(error){lastError=error;}
+        await wait(50);
+      }
+      throw new Error('Timed out: '+expression+(lastError?' ('+lastError.message+')':''));
+    };
     const key=async(code,key,down=true)=>send('Input.dispatchKeyEvent',{type:down?'keyDown':'keyUp',code,key,windowsVirtualKeyCode:{KeyQ:81,KeyE:69,KeyD:68,KeyA:65,ArrowLeft:37,ArrowRight:39,Space:32,Escape:27,F2:113,Backquote:192}[code]});
     const press=async(code,label)=>{await key(code,label);await key(code,label,false);await wait(100);};
     const click=selector=>evaluate(`document.querySelector(${JSON.stringify(selector)}).click()`);
     const metrics=(width,height,mobile=false)=>send('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile});
-    const navigate=async suffix=>{await send('Page.navigate',{url:url+suffix});await until("document.documentElement.classList.contains('ready')");await wait(200);};
+    // Wait for the new document's load event (matched by loaderId), then for the app's ready flag.
+    const navigate=async suffix=>{
+      const {loaderId,errorText}=await send('Page.navigate',{url:url+suffix});
+      if(errorText)throw new Error('Navigation failed: '+errorText);
+      if(loaderId){
+        const deadline=Date.now()+15000;
+        while(!lifecycle.some(event=>event.loaderId===loaderId&&event.name==='load')){
+          if(Date.now()>deadline)throw new Error('Load event timed out: '+suffix);
+          await wait(25);
+        }
+      }
+      lifecycle.length=0;
+      await until("document.documentElement?.classList.contains('ready')");await wait(200);
+    };
     const screenshot=async name=>{const result=await send('Page.captureScreenshot',{format:'png'});const file=path.join(output,name+'.png');fs.writeFileSync(file,Buffer.from(result.data,'base64'));console.log('Screenshot: '+file);};
     const debugPosition=async()=>{
       const content=await evaluate("document.querySelector('#debug-panel').textContent");
       const match=content.match(/PLAYER ([\d.]+) \/ ([\d.]+)/);return {x:Number(match[1]),y:Number(match[2])};
     };
-    await send('Page.enable');await send('Runtime.enable');
+    await send('Page.enable');await send('Page.setLifecycleEventsEnabled',{enabled:true});await send('Runtime.enable');
     await metrics(1440,900);await navigate('/');await screenshot('world-desktop');
     await press('F2','F2');const initial=await debugPosition();
     await key('KeyD','d');await wait(400);await key('KeyD','d',false);await wait(250);
