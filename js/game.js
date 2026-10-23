@@ -10,6 +10,7 @@ const lerp=(a,b,k)=>a+(b-a)*k;
 
 export class Game {
   constructor(canvas,state,onOpen,debug) {
+    this.events=new AbortController();
     this.canvas=canvas;this.ctx=canvas.getContext('2d');this.state=state;
     this.world=createWorld();this.player=new Player();this.camera=new Camera();
     this.interactions=new Interactions(onOpen);this.debug=debug;
@@ -30,13 +31,13 @@ export class Game {
       if(state.paused)return;const rect=canvas.getBoundingClientRect();
       const block=blockAt(this.camera.toWorld(event.clientX-rect.left,event.clientY-rect.top),this.world.blocks);
       if(block)this.interactions.activate(block,this.world.time);
-    });
+    },{signal:this.events.signal});
     this.canvas.addEventListener('pointermove',event=>{
       if(state.paused)return;const rect=canvas.getBoundingClientRect();
       this.hovered=blockAt(this.camera.toWorld(event.clientX-rect.left,event.clientY-rect.top),this.world.blocks);
       canvas.style.cursor=this.hovered?'pointer':'default';
-    },{passive:true});
-    this.canvas.addEventListener('pointerleave',()=>{this.hovered=null;canvas.style.cursor='default';});
+    },{passive:true,signal:this.events.signal});
+    this.canvas.addEventListener('pointerleave',()=>{this.hovered=null;canvas.style.cursor='default';},{signal:this.events.signal});
     this.resize();
   }
   resize(){
@@ -114,5 +115,5 @@ export class Game {
     if(!p||a>=1||Math.abs(p.px-this.player.x)>100)return {player:this.player,camera:this.camera};
     return {player:Object.assign(Object.create(this.player),{x:lerp(p.px,this.player.x,a),y:lerp(p.py,this.player.y,a)}),camera:Object.assign(Object.create(this.camera),{x:lerp(p.cx,this.camera.x,a)})};
   }
-  destroy(){cancelAnimationFrame(this.frame);this.hudObserver?.disconnect();removeEventListener('resize',this.resize);document.removeEventListener('visibilitychange',this.sync);this.unsubscribe();this.input?.destroy();}
+  destroy(){this.events.abort();cancelAnimationFrame(this.frame);this.hudObserver?.disconnect();removeEventListener('resize',this.resize);document.removeEventListener('visibilitychange',this.sync);this.unsubscribe();this.input?.destroy();}
 }

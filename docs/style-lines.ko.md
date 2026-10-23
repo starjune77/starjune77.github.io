@@ -1,3 +1,6 @@
+> Historical guide for the pre-React version. See [the React migration guide](react-migration.ko.md) for the current structure.
+
+
 # style.css 한 줄씩 설명
 
 2026-10-08에 읽은 현재 파일 기준입니다. 원본 코드는 수정하지 않았습니다. 코드 칸에서는 앞쪽 들여쓰기를 생략했습니다.

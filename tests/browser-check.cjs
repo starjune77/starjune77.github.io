@@ -175,9 +175,11 @@ async function main(){
     await press('Escape','Escape');assert(await evaluate("document.querySelector('#quick-view').open"),'nested panel returns to Quick View');
     await press('KeyQ','q');assert(!await evaluate("document.querySelector('#quick-view').open"));
     await press('Backquote','`');assert(await evaluate("document.querySelector('#terminal-dialog').open"));
-    await evaluate("document.querySelector('#terminal-input').value='projects';document.querySelector('#terminal-form').requestSubmit()");
+    await send('Input.insertText',{text:'projects'});
+    await evaluate("document.querySelector('#terminal-form').requestSubmit()");
     assert(await evaluate("document.querySelector('#terminal-output').textContent.includes('MorrowLab')"));
-    await evaluate("document.querySelector('#terminal-input').value='resume';document.querySelector('#terminal-form').requestSubmit()");
+    await send('Input.insertText',{text:'resume'});
+    await evaluate("document.querySelector('#terminal-form').requestSubmit()");
     assert.equal(await evaluate("document.querySelector('#panel-label').textContent"),'RESUME ARCHIVE');await press('Escape','Escape');
     for(const [width,height] of [[1920,1080],[1440,900],[1366,768],[1280,720],[1024,768],[768,1024],[430,932],[390,844]]){
       await metrics(width,height);await wait(100);
