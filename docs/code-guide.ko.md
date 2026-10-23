@@ -1,3 +1,5 @@
+> Historical pre-React guide. See [the current React architecture](react-architecture.ko.md).
+
 # 현재 포트폴리오 코드 설명
 
 현재 열려 있는 index.html, style.css, script.js를 **한 줄씩** 설명한 안내입니다. 각 줄에 역할, 값을 바꿨을 때의 결과, 필수 여부를 적었습니다. 원본 파일은 그대로 두었습니다.

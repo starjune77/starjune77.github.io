@@ -2,15 +2,17 @@
   "name": "starjune77.github.io",
   "version": "1.0.0",
   "description": "A 2D side-scrolling platformer portfolio set in the **Rain District**, an original neon city at night. Visitors run through eight districts, or open the complete professional portfolio in **Quick View**.",
-  "main": "script.js",
   "directories": {
     "doc": "docs",
     "test": "tests"
   },
   "scripts": {
-    "dev": "vite",
+    "dev": "vite --host 127.0.0.1",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview --host 127.0.0.1",
+    "test": "node --test --import ./tools/register-jsx.mjs tests/*.test.mjs",
+    "test:browser": "npm run build && node tests/browser-check.cjs",
+    "test:build": "npm run build && node tools/check-build.mjs"
   },
   "repository": {
     "type": "git",
@@ -31,5 +33,9 @@
   "devDependencies": {
     "@vitejs/plugin-react": "^6.1.2",
     "vite": "^8.3.5"
+  },
+  "private": true,
+  "engines": {
+    "node": ">=22.12.0"
   }
 }

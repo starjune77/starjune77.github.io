@@ -22,7 +22,7 @@ async function main(){
   if(!chrome||!fs.existsSync(chrome))throw new Error('Chrome not found. Set CHROME_PATH to your installed Chrome or Chromium executable.');
   const output=fs.mkdtempSync(path.join(os.tmpdir(),'junyoung-browser-'));
   const server=createServer();await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
-  const url=`http://127.0.0.1:${server.address().port}`;
+    const url=process.env.BROWSER_BASE_URL||`http://127.0.0.1:${server.address().port}`;
   const flags=['--headless=new','--remote-debugging-port=0',`--user-data-dir=${path.join(output,'profile')}`,'--no-first-run','--no-default-browser-check'];
   // Chrome refuses to start as root on Linux (containers, CI) unless the sandbox is disabled.
   if(process.platform==='linux'&&process.getuid?.()===0)flags.push('--no-sandbox');
@@ -37,14 +37,14 @@ async function main(){
     socket=new WebSocket(targets.find(t=>t.type==='page').webSocketDebuggerUrl);
     await new Promise((resolve,reject)=>{const timeout=setTimeout(()=>reject(new Error('Chrome WebSocket timed out')),8000);socket.onopen=()=>{clearTimeout(timeout);resolve();};socket.onerror=reject;});
     console.log('Chrome connected.');
-    let nextId=0;const pending=new Map(),errors=[],lifecycle=[];
+    let nextId=0,resumeStatus=200;const pending=new Map(),errors=[],lifecycle=[];
     socket.onmessage=event=>{
       const message=JSON.parse(event.data);
       if(message.id){const item=pending.get(message.id);if(!item)return;pending.delete(message.id);clearTimeout(item.timeout);message.error?item.reject(new Error(JSON.stringify(message.error))):item.resolve(message.result);}
       else if(message.method==='Page.lifecycleEvent')lifecycle.push(message.params);
       else if(message.method==='Runtime.exceptionThrown')errors.push(message.params.exceptionDetails.text+': '+message.params.exceptionDetails.exception?.description);
       else if(message.method==='Runtime.consoleAPICalled'&&message.params.type==='error')errors.push(JSON.stringify(message.params.args));
-      else if(message.method==='Fetch.requestPaused')send('Fetch.fulfillRequest',{requestId:message.params.requestId,responseCode:200,responseHeaders:[{name:'Content-Type',value:'application/pdf'}]}).catch(error=>errors.push(error.message));
+      else if(message.method==='Fetch.requestPaused')send('Fetch.fulfillRequest',{requestId:message.params.requestId,responseCode:resumeStatus,responseHeaders:[{name:'Content-Type',value:'application/pdf'}]}).catch(error=>errors.push(error.message));
     };
     socket.onclose=()=>{for(const item of pending.values()){clearTimeout(item.timeout);item.reject(new Error('Chrome connection closed'));}pending.clear();};
     const send=(method,params={})=>new Promise((resolve,reject)=>{const id=++nextId;const timeout=setTimeout(()=>{pending.delete(id);reject(new Error('Chrome command timed out: '+method));},8000);pending.set(id,{resolve,reject,timeout});socket.send(JSON.stringify({id,method,params}));});
@@ -175,9 +175,20 @@ async function main(){
     await press('Escape','Escape');assert(await evaluate("document.querySelector('#quick-view').open"),'nested panel returns to Quick View');
     await press('KeyQ','q');assert(!await evaluate("document.querySelector('#quick-view').open"));
     await press('Backquote','`');assert(await evaluate("document.querySelector('#terminal-dialog').open"));
-    await evaluate("document.querySelector('#terminal-input').value='projects';document.querySelector('#terminal-form').requestSubmit()");
+    assert(await evaluate("document.activeElement.id==='terminal-input'"),'terminal focuses the command input');
+    await send('Input.insertText',{text:'projects'});
+    await evaluate("document.querySelector('#terminal-form').requestSubmit()");
     assert(await evaluate("document.querySelector('#terminal-output').textContent.includes('MorrowLab')"));
-    await evaluate("document.querySelector('#terminal-input').value='resume';document.querySelector('#terminal-form').requestSubmit()");
+    await send('Input.insertText',{text:'missing-command'});await evaluate("document.querySelector('#terminal-form').requestSubmit()");
+    assert(await evaluate("document.querySelector('#terminal-output').lastElementChild.textContent==='Unknown command. Type help.'"));
+    for(let i=0;i<32;i++){
+      await send('Input.insertText',{text:'help'});await evaluate("document.querySelector('#terminal-form').requestSubmit()");
+    }
+    assert.equal(await evaluate("document.querySelector('#terminal-output').children.length"),60,'terminal caps output history');
+    await send('Input.insertText',{text:'clear'});await evaluate("document.querySelector('#terminal-form').requestSubmit()");
+    assert.equal(await evaluate("document.querySelector('#terminal-output').children.length"),0,'clear removes output');
+    await send('Input.insertText',{text:'resume'});
+    await evaluate("document.querySelector('#terminal-form').requestSubmit()");
     assert.equal(await evaluate("document.querySelector('#panel-label').textContent"),'RESUME ARCHIVE');await press('Escape','Escape');
     for(const [width,height] of [[1920,1080],[1440,900],[1366,768],[1280,720],[1024,768],[768,1024],[430,932],[390,844]]){
       await metrics(width,height);await wait(100);
@@ -224,6 +235,17 @@ async function main(){
     await navigate('/?view=quick');await until("document.querySelector('.resume-status').textContent==='Resume PDF available.'");
     assert(await evaluate("[...document.querySelectorAll('[data-resume]')].every(a=>!a.hasAttribute('aria-disabled'))"),'existing PDF activates links automatically');
     await send('Fetch.disable');
+    resumeStatus=404;
+    await send('Fetch.enable',{patterns:[{urlPattern:'*Junyoung_Oh_Resume.pdf',requestStage:'Request'}]});
+    await navigate('/?view=quick');await wait(200);
+    assert(await evaluate("[...document.querySelectorAll('[data-resume]')].every(a=>a.getAttribute('aria-disabled')==='true'&&a.tabIndex===-1)"),'missing PDF leaves links inactive');
+    await send('Fetch.disable');
+    await navigate('/react-test.html');assert(await evaluate("document.querySelector('#world')!==null"),'existing React test URL loads the full app');
+    await send('Emulation.setScriptExecutionDisabled',{value:true});
+    await send('Page.navigate',{url:url+'/'});
+    await until("document.readyState==='complete'&&document.querySelector('.fallback')!==null");
+    assert(await evaluate("getComputedStyle(document.querySelector('.fallback')).display!=='none'&&document.querySelector('.fallback').textContent.includes('MorrowLab')"),'no-JavaScript semantic portfolio remains available');
+    await send('Emulation.setScriptExecutionDisabled',{value:false});
     assert.deepEqual(errors,[],'no runtime console errors or uncaught exceptions');
     console.log('PASS gameplay, jump-hit, E interaction, pause/resume, nested dialogs, Quick View, terminal, demos, touch/multi-touch, reduced motion, deep links, viewport checks.');
     console.log('Optional missing resume PDF returns HTTP 404 by design; no JavaScript exception.');

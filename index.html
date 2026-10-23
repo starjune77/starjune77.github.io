@@ -13,85 +13,15 @@
     content="Explore Junyoung Oh’s playable portfolio, or read the complete professional portfolio in Quick View.">
   <meta property="og:type" content="website">
   <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="style.css?v=dca093140240">
-  <script defer src="assets/app-3c3b1a2c99fb.js"></script>
+<script type="module" src="/src/main.jsx"></script>
 </head>
 
 <body>
-  <button class="skip" data-quick>Open accessible portfolio</button>
-  <main id="game-shell" aria-label="Interactive portfolio world">
-    <canvas id="world" tabindex="0"
-      aria-label="Junyoung Oh’s side-scrolling portfolio. A or D to move, Space to jump, Shift to sprint, E to interact, Q to read the complete portfolio.">Use
-      Quick View to read the complete portfolio without Canvas.</canvas>
-    <header class="game-hud">
-      <div class="hud-brand"><span>JY<span class="blue">/</span>LAB<span class="status-dot"></span></span>
-        <p id="current-area">SYSTEM START</p>
-      </div>
-      <nav id="zone-progress" aria-label="World area progress"></nav><button class="button quick-control"
-        data-quick>Quick View <kbd>Q</kbd></button>
-    </header>
-    <div id="tutorial">
-      <p class="eyebrow">JUNYOUNG OH / INTERACTIVE PORTFOLIO</p>
-      <p class="tutorial-desktop"><kbd>A</kbd><kbd>D</kbd> Move <span>·</span> <kbd>Space</kbd> Jump <span>·</span>
-        <kbd>Shift</kbd> Sprint <span>·</span> <kbd>E</kbd> Open</p>
-      <p class="tutorial-touch">Move, jump, and open with the controls below.</p>
-      <p class="muted tutorial-desktop">Jump into a kiosk from below, press E nearby, or click it. Read everything in Quick View.</p>
-      <p class="muted tutorial-touch">Jump into a kiosk from below or tap Open nearby. Read everything in Quick View.</p>
-    </div>
-    <p id="zone-banner" aria-live="polite"></p>
-    <button id="interaction-prompt" hidden><span id="interaction-name"></span><small
-        id="interaction-detail"></small><span class="prompt-desktop"><kbd>E</kbd> OPEN <span> / </span> JUMP TO
-        ACCESS</span><span class="prompt-touch">TAP TO OPEN</span></button>
-    <div id="mobile-controls" aria-label="Touch game controls">
-      <div><button data-touch="left" aria-label="Move left">←</button><button data-touch="right"
-          aria-label="Move right">→</button></div>
-      <div><button data-touch="jump" aria-label="Jump">Jump</button><button id="touch-open" disabled>Open</button></div>
-    </div>
-    <div class="world-footer"><span>ORIGINAL CANVAS WORLD / NO CAMERA ACCESS</span><span>JUNYOUNG LAB · MADISON,
-        WI</span></div>
-    <pre id="debug-panel" hidden aria-label="Live game diagnostics"></pre>
-  </main>
-  <dialog id="quick-view" class="quick-view" aria-labelledby="quick-title">
-    <header class="quick-header"><a class="brand" href="#quick-main">Junyoung Oh</a>
-      <nav aria-label="Portfolio navigation"><a href="#quick-projects">Work</a><a
-          href="#quick-experience">Experience</a><a href="#quick-skills">Skills</a><a href="#quick-resume">Resume</a><a
-          href="#quick-contact">Contact</a></nav><button class="button return-button" data-close>Return to game
-        <span>×</span></button>
-    </header>
-    <div id="quick-content"><!-- Semantic content is generated from js/data.js by js/quick-view.js. --></div>
-  </dialog>
-  <dialog id="info-panel" class="info-panel" aria-labelledby="panel-title">
-    <div class="dialog-toolbar">
-      <p id="panel-label" class="eyebrow">INFORMATION MODULE</p>
-      <div class="panel-tools"><button class="text-button" data-quick>Quick View</button><button class="button"
-          data-close aria-label="Close information panel">Close ×</button></div>
-    </div>
-    <div class="panel-body">
-      <h2 id="panel-title" tabindex="-1"></h2>
-      <div id="panel-content"></div>
-    </div>
-  </dialog>
-  <dialog id="terminal-dialog" class="terminal-dialog" aria-labelledby="terminal-title">
-    <div class="dialog-toolbar">
-      <h2 id="terminal-title" class="eyebrow">JUNYOUNG@PORTFOLIO:~</h2><button class="button" data-close
-        aria-label="Close terminal">Close ×</button>
-    </div>
-    <div id="terminal-output" role="log" aria-live="polite">
-      <p>Portfolio console. Type help for commands.</p>
-    </div>
-    <form id="terminal-form"><label for="terminal-input">jy:~$</label><input id="terminal-input" autocomplete="off"
-        spellcheck="false" aria-label="Terminal command"></form>
-  </dialog>
-  <dialog id="mobile-choice" class="mobile-choice" aria-labelledby="choice-title">
-    <p class="eyebrow">JUNYOUNG LAB</p>
-    <h2 id="choice-title">Choose your<br>way in.</h2>
-    <p>Explore a playable digital world, or read the full professional portfolio.</p>
-    <div class="actions"><button id="explore-choice" class="button primary">Explore world →</button><button
-        id="quick-choice" class="button">Quick View ↗</button></div>
-  </dialog>
+  <div id="react-root"></div>
   <noscript>
+    <link rel="stylesheet" href="/style.css">
     <style>
-      #game-shell,
+      #react-root,
       .skip,
       #quick-view {
         display: none

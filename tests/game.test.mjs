@@ -6,13 +6,9 @@ import {createWorld,zoneAt,zones} from '../js/world.js';
 import {nearestInteraction,Interactions} from '../js/interactions.js';
 import {createState} from '../js/utils.js';
 import {projects,skills} from '../js/data.js';
-import {quickViewHTML} from '../js/quick-view.js';
-import {readFileSync,writeFileSync,readdirSync,mkdirSync,mkdtempSync,rmSync,existsSync} from 'node:fs';
-import {join} from 'node:path';
-import {tmpdir} from 'node:os';
-import {fileURLToPath} from 'node:url';
-import buildTools from '../tools/build.cjs';
-const {bundle,build}=buildTools;
+import React from 'react';
+import {renderToStaticMarkup} from 'react-dom/server';
+import QuickView from '../src/components/QuickView.jsx';
 
 const step = (player,world,seconds,input={axis:0,jumpHeld:false,jumpPressed:false}) => {
   const hits=[];
@@ -139,7 +135,7 @@ test('central state pauses without changing data; project modules map to preserv
   assert.equal(zoneAt(8700).id,'resume');assert.equal(zones.length,8);
 });
 test('Quick View has a numbered Skills section with both categories and a decorative marquee',()=>{
-  const html=quickViewHTML();
+  const html=renderToStaticMarkup(React.createElement(QuickView,{active:false,onClose:()=>{},onOpen:()=>{},resumeAvailable:false}));
   const ids=[...html.matchAll(/\sid="([^"]+)"/g)].map(m=>m[1]);
   assert.equal(new Set(ids).size,ids.length,'ids are unique');
   assert.equal(ids.filter(id=>id==='quick-skills').length,1);
@@ -155,56 +151,4 @@ test('Quick View has a numbered Skills section with both categories and a decora
   const marquee=html.match(/<div class="skills-marquee"[^>]*>/)[0];
   assert(marquee.includes('aria-hidden="true"')&&!marquee.includes(' id='),'marquee is decorative');
   assert(!/<section[^>]*skills-marquee/.test(html),'marquee is not a landmark');
-});
-
-// Site build and source hygiene.
-const root=fileURLToPath(new URL('..',import.meta.url));
-const sourceFiles=()=>['script.js',...readdirSync(join(root,'js')).filter(f=>f.endsWith('.js')).map(f=>'js/'+f)];
-const copySite=(target,transform=text=>text)=>{
-  mkdirSync(join(target,'js'),{recursive:true});mkdirSync(join(target,'assets'),{recursive:true});
-  for(const file of [...sourceFiles(),'style.css','index.html'])writeFileSync(join(target,file),transform(readFileSync(join(root,file),'utf8')));
-};
-test('ES import specifiers carry no ?v= query strings',()=>{
-  for(const file of sourceFiles()){
-    const specifiers=[...readFileSync(join(root,file),'utf8').matchAll(/^import[^;]*?from\s*['"]([^'"]+)['"]/gms)].map(m=>m[1]);
-    for(const specifier of specifiers)assert(!/[?#]/.test(specifier),`${file} imports ${specifier}`);
-  }
-});
-test('source files have no BOM or CRLF line endings',()=>{
-  for(const file of [...sourceFiles(),'style.css','index.html']){
-    const text=readFileSync(join(root,file),'utf8');
-    assert(!text.startsWith('﻿'),file+' BOM');assert(!text.includes('\r'),file+' CRLF');
-  }
-});
-test('bundle hash is reproducible across builds and line endings',()=>{
-  const first=bundle(root),second=bundle(root);
-  assert.equal(first.hash,second.hash);assert.equal(first.styleHash,second.styleHash);
-  const windows=mkdtempSync(join(tmpdir(),'jy-build-'));
-  try{
-    copySite(windows,text=>'﻿'+text.replace(/\n/g,'\r\n'));
-    const crlf=bundle(windows);
-    assert.equal(crlf.hash,first.hash,'CRLF + BOM sources produce the same bundle name');
-    assert.equal(crlf.styleHash,first.styleHash);
-    assert(!crlf.code.includes('\r')&&!crlf.code.includes('﻿'));
-  }finally{rmSync(windows,{recursive:true,force:true});}
-});
-test('build removes stale bundles and points index.html at the new one',()=>{
-  const site=mkdtempSync(join(tmpdir(),'jy-build-'));
-  try{
-    copySite(site);writeFileSync(join(site,'assets','app-000000000000.js'),'stale');
-    const result=build(site),again=build(site);
-    assert.equal(again.asset,result.asset,'building twice gives the same file name');
-    assert.deepEqual(readdirSync(join(site,'assets')).filter(f=>/^app-.*\.js$/.test(f)),[result.asset.slice(7)]);
-    const html=readFileSync(join(site,'index.html'),'utf8');
-    assert(html.includes(`<script defer src="${result.asset}"></script>`));
-    assert(html.includes(`href="style.css?v=${result.styleHash}"`));
-    assert.equal((html.match(/assets\/app-/g)||[]).length,1);
-  }finally{rmSync(site,{recursive:true,force:true});}
-});
-test('committed index.html references the current bundle',()=>{
-  const {hash,styleHash}=bundle(root),html=readFileSync(join(root,'index.html'),'utf8');
-  assert(html.includes(`src="assets/app-${hash}.js"`),'run node tools/build.cjs');
-  assert(html.includes(`style.css?v=${styleHash}`),'run node tools/build.cjs');
-  assert(existsSync(join(root,'assets',`app-${hash}.js`)));
-  assert.deepEqual(readdirSync(join(root,'assets')).filter(f=>/^app-.*\.js$/.test(f)),[`app-${hash}.js`]);
 });
